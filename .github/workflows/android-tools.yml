@@ -49,7 +49,7 @@ jobs:
           echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/36.1.0:$PATH" >> "$GITHUB_ENV"
 
           apksigner --version
-          zipalign -h >/dev/null
+          test -x "$ANDROID_HOME/build-tools/36.1.0/zipalign"
 
       - name: Install Apktool 3.0.3
         run: |
