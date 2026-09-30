@@ -146,10 +146,16 @@ jobs:
           if 'android:id="@id/revoke"' not in text and 'android:id="@+id/revoke"' not in text:
               raise SystemExit("revoke button not found")
           import re
-          match = re.search(r'<(?P<tag>[A-Za-z_][\\w.:]*)\\b(?=[^>]*android:id="@id/revoke"\\b)[^>]*(?:/>|>.*?</(?P=tag)>)', text, re.DOTALL)
-          if not match:
+          id_pos = text.find('android:id="@id/revoke"')
+          if id_pos < 0:
+              id_pos = text.find('android:id="@+id/revoke"')
+          if id_pos < 0:
               raise SystemExit("revoke view element not found")
-          button = match.group(0)
+          tag_start = text.rfind('<', 0, id_pos)
+          tag_end = text.find('>', id_pos)
+          if tag_start < 0 or tag_end < 0:
+              raise SystemExit("could not locate revoke element bounds")
+          button = text[tag_start:tag_end + 1]
           if 'android:id="@+id/export_certificate"' in text:
               raise SystemExit("export button already exists")
           export_button = button
