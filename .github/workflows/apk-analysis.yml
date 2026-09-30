@@ -198,6 +198,33 @@ jobs:
               ftext = ftext.rstrip() + "\n\n" + fmethod
               fragment.write_text(ftext, encoding="utf-8")
           print("CertificateInfoFragment PEM getter added")
+          eds = Path("work/decoded/smali_classes9/kz/mobile/mgov/features/eds/presentation/EdsActivity.smali")
+          etext = eds.read_text(encoding="utf-8")
+          if ".method public exportCertificate(Landroid/view/View;)V" not in etext:
+              emethod = "\n".join([
+                  "    .method public exportCertificate(Landroid/view/View;)V",
+                  "        .locals 2",
+                  "",
+                  "        invoke-virtual {p0}, Landroidx/fragment/app/FragmentActivity;->getSupportFragmentManager()Landroidx/fragment/app/FragmentManager;",
+                  "        move-result-object v0",
+                  "        sget v1, Lkz/mobile/mgov/R$id;->edsCreationContainer:I",
+                  "        invoke-virtual {v0, v1}, Landroidx/fragment/app/FragmentManager;->findFragmentById(I)Landroidx/fragment/app/Fragment;",
+                  "        move-result-object v0",
+                  "        instance-of v1, v0, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;",
+                  "        if-eqz v1, :export_done",
+                  "        check-cast v0, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;",
+                  "        invoke-virtual {v0}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;->getCertificatePem()Ljava/lang/String;",
+                  "        move-result-object v0",
+                  "        if-eqz v0, :export_done",
+                  "",
+                  "    :export_done",
+                  "        return-void",
+                  "    .end method",
+                  "",
+              ])
+              etext = etext.rstrip() + "\n\n" + emethod
+              eds.write_text(etext, encoding="utf-8")
+          print("EdsActivity exportCertificate handler connected to PEM getter")
           PY
 
       - name: Verify certificate export patch
