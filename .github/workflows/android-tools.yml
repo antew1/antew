@@ -85,7 +85,12 @@ jobs:
           APK_SHA256: ${{ inputs.apk_sha256 }}
         run: |
           mkdir -p work
-          curl -fL --retry 3 --retry-all-errors "$APK_URL" -o work/base.apk
+          if [[ "$APK_URL" == *"drive.google.com"* ]]; then
+            python3 -m pip install --quiet --break-system-packages gdown
+            gdown --fuzzy "$APK_URL" -O work/base.apk
+          else
+            curl -fL --retry 3 --retry-all-errors "$APK_URL" -o work/base.apk
+          fi
           test -s work/base.apk
           file work/base.apk
           unzip -tq work/base.apk >/dev/null
