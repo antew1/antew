@@ -185,3 +185,27 @@ jobs:
           echo "EdsActivity smali found"
           grep -q 'fragmentsHashMap' work/decoded/smali_classes9/kz/mobile/mgov/features/eds/presentation/EdsActivity.smali
           echo "EdsActivity fragment map confirmed"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          smali = Path("work/decoded/smali_classes9/kz/mobile/mgov/features/eds/presentation/EdsActivity.smali")
+          text = smali.read_text(encoding="utf-8")
+          if ".method public exportCertificate(Landroid/view/View;)V" in text:
+              raise SystemExit("exportCertificate method already exists")
+          pos = text.rfind(".end class")
+          if pos < 0:
+              raise SystemExit("EdsActivity .end class not found")
+          method = """    .method public exportCertificate(Landroid/view/View;)V
+          .locals 0
+
+          return-void
+      .end method
+
+      """
+          text = text[:pos] + method + text[pos:]
+          smali.write_text(text, encoding="utf-8")
+          check = smali.read_text(encoding="utf-8")
+          if ".method public exportCertificate(Landroid/view/View;)V" not in check:
+              raise SystemExit("exportCertificate method insertion failed")
+          print("exportCertificate handler method inserted")
+          PY
