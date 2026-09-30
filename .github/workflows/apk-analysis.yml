@@ -271,3 +271,13 @@ jobs:
               raise SystemExit("exportCertificate method not found")
           print("exportCertificate handler method confirmed")
           PY
+
+
+      - name: Build patched APK
+        run: |
+          set -e
+          rm -rf work/build
+          java -jar tools/apktool.jar b work/decoded -o work/egov-patched-unsigned.apk
+          test -s work/egov-patched-unsigned.apk
+          echo "Patched APK built"
+          ls -lh work/egov-patched-unsigned.apk
