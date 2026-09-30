@@ -6,63 +6,59 @@ on:
       - ".github/workflows/android-tools.yml"
       - "toolchain/**"
   workflow_dispatch:
+    inputs:
+      apk_url:
+        description: "Direct HTTPS URL of the APK to analyze (leave empty for toolchain-only check)"
+        required: false
+        type: string
+      apk_sha256:
+        description: "Optional SHA-256 of the APK"
+        required: false
+        type: string
 
 jobs:
   verify-tools:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-
     steps:
       - name: Checkout repository
-        run: |
-          git clone --depth 1 --branch main https://github.com/antew1/antew.git "$GITHUB_WORKSPACE"
-
+        uses: actions/checkout@v4
       - name: Set up Java 21
         run: |
           sudo apt-get update
-          sudo apt-get install -y openjdk-21-jdk
+          sudo apt-get install -y openjdk-21-jdk unzip wget curl p7zip-full
           export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
           export PATH="$JAVA_HOME/bin:$PATH"
           echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
           echo "PATH=$JAVA_HOME/bin:$PATH" >> "$GITHUB_ENV"
           java -version
-
       - name: Install Android SDK build tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip wget
           mkdir -p "$HOME/android-sdk/cmdline-tools"
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O /tmp/cmdline-tools.zip
           unzip -q /tmp/cmdline-tools.zip -d "$HOME/android-sdk/cmdline-tools"
           mv "$HOME/android-sdk/cmdline-tools/cmdline-tools" "$HOME/android-sdk/cmdline-tools/latest"
-
           export ANDROID_HOME="$HOME/android-sdk"
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/36.1.0:$PATH"
-
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "build-tools;36.1.0"
-
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
           echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/36.1.0:$PATH" >> "$GITHUB_ENV"
-
           apksigner --version
-          # Verify zipalign is installed and executable.
           test -x "$ANDROID_HOME/build-tools/36.1.0/zipalign"
-
+          test -x "$ANDROID_HOME/build-tools/36.1.0/aapt"
       - name: Install Apktool 3.0.3
         run: |
           wget -q https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar -O /tmp/apktool.jar
           java -jar /tmp/apktool.jar --version
-
-      - name: Install JADX
+      - name: Install JADX 1.5.3
         run: |
           wget -q https://github.com/skylot/jadx/releases/download/v1.5.3/jadx-1.5.3.zip -O /tmp/jadx.zip
           unzip -q /tmp/jadx.zip -d "$HOME/jadx"
           "$HOME/jadx/bin/jadx" --version
-
       - name: Save tool versions
         run: |
           mkdir -p toolchain
@@ -76,11 +72,69 @@ jobs:
             echo "apksigner:"
             apksigner --version
           } | tee toolchain/versions.txt
-
       - name: Verify toolchain
         run: |
           test -s toolchain/versions.txt
           grep -q "Apktool:" toolchain/versions.txt
           grep -q "JADX:" toolchain/versions.txt
           grep -q "apksigner:" toolchain/versions.txt
-          echo "Android APK toolchain verification completed successfully."
+      - name: Download APK
+        if: ${{ inputs.apk_url != '' }}
+        env:
+          APK_URL: ${{ inputs.apk_url }}
+          APK_SHA256: ${{ inputs.apk_sha256 }}
+        run: |
+          mkdir -p work
+          curl -fL --retry 3 --retry-all-errors "$APK_URL" -o work/base.apk
+          test -s work/base.apk
+          file work/base.apk
+          unzip -tq work/base.apk >/dev/null
+          if [ -n "$APK_SHA256" ]; then
+            echo "$APK_SHA256  work/base.apk" | sha256sum -c -
+          fi
+          sha256sum work/base.apk | tee work/apk.sha256
+          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging work/base.apk | head -n 5 | tee work/badging.txt
+      - name: Decompile APK with Apktool
+        if: ${{ inputs.apk_url != '' }}
+        run: |
+          java -jar /tmp/apktool.jar d -f work/base.apk -o work/apktool-out 2>&1 | tee work/apktool.log
+      - name: Decompile APK with JADX
+        if: ${{ inputs.apk_url != '' }}
+        run: |
+          "$HOME/jadx/bin/jadx" --show-bad-code --deobf -d work/jadx-out work/base.apk 2>&1 | tee work/jadx.log
+      - name: Locate EDS and certificate code
+        if: ${{ inputs.apk_url != '' }}
+        run: |
+          {
+            echo "=== EDS / certificate search ==="
+            grep -RniE "EdsActivity|EdsProductionUtils|CertificateUtils|KeyStoreExtracter|AppKeyStore|KeyStoreLoader|getCertificate|getP12Directory" work/jadx-out 2>/dev/null | head -n 1000 || true
+            echo
+            echo "=== Decompiled EDS files ==="
+            find work/jadx-out -type f \( -iname "*EdsActivity*" -o -iname "*CertificateUtils*" -o -iname "*EdsProductionUtils*" -o -iname "*KeyStoreExtracter*" -o -iname "*KeyStoreLoader*" -o -iname "*AppKeyStore*" \) -print | sort
+          } | tee work/eds-report.txt
+      - name: Package analysis results
+        if: ${{ inputs.apk_url != '' }}
+        run: |
+          tar -czf work/jadx-out.tar.gz -C work jadx-out
+          tar -czf work/apktool-out.tar.gz -C work apktool-out
+      - name: Upload analysis artifacts
+        if: ${{ inputs.apk_url != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-analysis
+          path: |
+            work/apk.sha256
+            work/badging.txt
+            work/eds-report.txt
+            work/apktool.log
+            work/jadx.log
+            work/jadx-out.tar.gz
+            work/apktool-out.tar.gz
+          compression-level: 0
+          if-no-files-found: error
+      - name: Upload toolchain-only artifacts
+        if: ${{ inputs.apk_url == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolchain
+          path: toolchain/versions.txt
