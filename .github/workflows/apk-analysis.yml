@@ -288,9 +288,11 @@ jobs:
           ls -lh work/egov-patched-unsigned.apk
 
       - name: Publish patched APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-          GH_TOKEN="$GITHUB_TOKEN" gh release create "patched-apk-${{ github.run_number }}" work/egov-patched-unsigned.apk \
+          gh release create "patched-apk-${{ github.run_number }}" work/egov-patched-unsigned.apk \
             --title "Patched eGov APK #${{ github.run_number }}" \
             --notes "Unsigned patched APK with public certificate export button."
 
