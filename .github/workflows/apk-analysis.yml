@@ -287,6 +287,20 @@ jobs:
           echo "Patched APK built"
           ls -lh work/egov-patched-unsigned.apk
 
+      - name: Sign patched APK
+        run: |
+          set -e
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          apksigner sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android --key-pass pass:android \
+            --ks-key-alias androiddebugkey --out work/egov-patched-debug.apk work/egov-patched-unsigned.apk
+          apksigner verify --verbose work/egov-patched-debug.apk
+          test -s work/egov-patched-debug.apk
+          ls -lh work/egov-patched-debug.apk
+
       - name: Publish patched APK release
         env:
           GH_TOKEN: ${{ github.token }}
