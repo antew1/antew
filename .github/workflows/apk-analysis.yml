@@ -81,7 +81,8 @@ jobs:
           find work/jadx/sources -type f \
             \( -name 'EdsActivity.java' -o -name 'FileRepositoryImpl.java' -o -name 'CertificateUtils.java' \
             -o -name 'KeyStoreLoader.java' -o -name 'KeyStoreExtracter.java' -o -name 'KeyStoreWrapper.java' \
-            -o -name 'AppKeyStore.java' -o -name 'EdsProductionUtils.java' \) \
+            -o -name 'AppKeyStore.java' -o -name 'EdsProductionUtils.java' \ -o -name 'CertificateInfoFragment.java' -o -name 'CertificationInfoFragment.java' \
+            -o -name 'FileExplorerActivity.java' -o -name '*Certificate*.java' -o -name '*Eds*ViewModel.java' \) \
             -print | sort
 
           echo "=== TARGET SOURCE CONTENT ==="
@@ -110,6 +111,13 @@ jobs:
             \( -name 'CertificateInfoFragment.java' -o -name 'CertificationInfoFragment.java' \
             -o -name 'FileExplorerActivity.java' -o -name '*Certificate*ViewModel.java' \) \
             -print | sort)
+
+          echo "=== CERTIFICATE / EDS SOURCE CONTENT ==="
+          while IFS= read -r f; do
+            echo
+            echo "===== FILE: $f ====="
+            sed -n '1,650p' "$f"
+          done < <(find work/jadx/sources -type f -name 'CertificateInfoFragment.java' -o -name 'CertificationInfoFragment.java' -o -name '*Certificate*.java' -o -name '*Eds*ViewModel.java' | sort)
 
           echo "=== TARGET METHOD CONTEXT ==="
           grep -RniE -C 25 'getP12Directory|getP12Files|getFileForAuth|getFileForSign|getFileGost|exportFileToDownloads|certificateFileForAuth|certificateFileForSign|certificateFileGost|AndroidKeyStore|mgov_keystore|getCertificate\(|getKey\(' work/jadx/sources 2>/dev/null | head -n 3500 || true
