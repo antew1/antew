@@ -145,6 +145,29 @@ jobs:
           text = layout.read_text(encoding="utf-8")
           if 'android:id="@id/revoke"' not in text and 'android:id="@+id/revoke"' not in text:
               raise SystemExit("revoke button not found")
+          import re
+          match = re.search(r'<Button\\b(?=[^>]*android:id="@id/revoke"\\b)[^>]*(?:/>|>.*?</Button>)', text, re.DOTALL)
+          if not match:
+              raise SystemExit("revoke Button element not found")
+          button = match.group(0)
+          if 'android:id="@+id/export_certificate"' in text:
+              raise SystemExit("export button already exists")
+          export_button = button
+          export_button = export_button.replace('android:id="@id/revoke"', 'android:id="@+id/export_certificate"', 1)
+          if 'android:text=' in export_button:
+              export_button = re.sub(r'android:text="[^"]*"', 'android:text="Экспортировать сертификат"', export_button, count=1)
+          else:
+              export_button = export_button.replace('>', ' android:text="Экспортировать сертификат">', 1)
+          if 'android:visibility=' in export_button:
+              export_button = re.sub(r'android:visibility="[^"]*"', 'android:visibility="gone"', export_button, count=1)
+          else:
+              export_button = export_button.replace('>', ' android:visibility="gone">', 1)
+          text = text[:match.start()] + export_button + "\\n" + text[match.start():]
+          layout.write_text(text, encoding="utf-8")
+          check = layout.read_text(encoding="utf-8")
+          if 'android:id="@+id/export_certificate"' not in check:
+              raise SystemExit("export button insertion failed")
           print("Certificate layout found:", layout)
           print("Revoke button confirmed")
+          print("Export button inserted and hidden for this validation step")
           PY
