@@ -239,20 +239,7 @@ jobs:
           from pathlib import Path
           smali = Path("work/decoded/smali_classes9/kz/mobile/mgov/features/eds/presentation/EdsActivity.smali")
           text = smali.read_text(encoding="utf-8")
-          if ".method public exportCertificate(Landroid/view/View;)V" in text:
-              raise SystemExit("exportCertificate method already exists")
-          method = "\n".join([
-              "    .method public exportCertificate(Landroid/view/View;)V",
-              "        .locals 0",
-              "",
-              "        return-void",
-              "    .end method",
-              "",
-          ])
-          text = text.rstrip() + "\n\n" + method
-          smali.write_text(text, encoding="utf-8")
-          check = smali.read_text(encoding="utf-8")
-          if ".method public exportCertificate(Landroid/view/View;)V" not in check:
-              raise SystemExit("exportCertificate method insertion failed")
-          print("exportCertificate handler method inserted")
+          if ".method public exportCertificate(Landroid/view/View;)V" not in text:
+              raise SystemExit("exportCertificate method not found")
+          print("exportCertificate handler method confirmed")
           PY
