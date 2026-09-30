@@ -142,5 +142,9 @@ jobs:
           layout = next(root.rglob("fragment_certificate_info.xml"), None)
           if layout is None:
               raise SystemExit("fragment_certificate_info.xml not found")
+          text = layout.read_text(encoding="utf-8")
+          if 'android:id="@+id/revoke"' not in text:
+              raise SystemExit("revoke button not found")
           print("Certificate layout found:", layout)
+          print("Revoke button confirmed")
           PY
