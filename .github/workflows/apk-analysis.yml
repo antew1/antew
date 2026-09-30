@@ -21,3 +21,8 @@ jobs:
           echo "APK Analysis runner started"
           java -version 2>&1 || true
           echo "APK URL supplied: ${{ inputs.apk_url != '' }}"
+
+      - name: Test input
+        run: |
+          echo "APK URL:"
+          printf '%s\n' '${{ inputs.apk_url }}'
