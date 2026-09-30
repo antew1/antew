@@ -203,7 +203,7 @@ jobs:
           if ".method public exportCertificate(Landroid/view/View;)V" not in etext:
               emethod = "\n".join([
                   "    .method public exportCertificate(Landroid/view/View;)V",
-                  "        .locals 2",
+                  "        .locals 5",
                   "",
                   "        invoke-virtual {p0}, Landroidx/fragment/app/FragmentActivity;->getSupportFragmentManager()Landroidx/fragment/app/FragmentManager;",
                   "        move-result-object v0",
