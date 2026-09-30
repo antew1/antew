@@ -292,4 +292,3 @@ jobs:
         with:
           name: egov-patched-unsigned
           path: work/egov-patched-unsigned.apk
-          if-no-files-found: error
