@@ -255,6 +255,10 @@ jobs:
               etext = etext.rstrip() + "\n\n" + emethod
               eds.write_text(etext, encoding="utf-8")
           print("EdsActivity exportCertificate handler connected to PEM getter")
+          print("=== CERTIFICATE XML LINES 28-36 ===")
+          for n, line in enumerate(layout.read_text(encoding="utf-8").splitlines(), 1):
+              if 28 <= n <= 36:
+                  print(f"{n}: {line}")
           PY
 
       - name: Verify certificate export patch
