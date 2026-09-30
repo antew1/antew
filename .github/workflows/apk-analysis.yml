@@ -77,6 +77,27 @@ jobs:
           echo "=== EDS / KeyStore symbol hits ==="
           grep -RniE 'EdsActivity|FileRepositoryImpl|CertificateUtils|KeyStoreLoader|KeyStoreExtracter|KeyStoreWrapper|AppKeyStore|EdsProductionUtils|getP12Directory|getFileForAuth|getFileForSign|getFileGost|AndroidKeyStore|mgov_keystore' work/jadx 2>/dev/null | head -n 500 || true
 
+          echo "=== TARGET SOURCE FILES ==="
+          find work/jadx/sources -type f \
+            \( -name 'EdsActivity.java' -o -name 'FileRepositoryImpl.java' -o -name 'CertificateUtils.java' \
+            -o -name 'KeyStoreLoader.java' -o -name 'KeyStoreExtracter.java' -o -name 'KeyStoreWrapper.java' \
+            -o -name 'AppKeyStore.java' -o -name 'EdsProductionUtils.java' \) \
+            -print | sort
+
+          echo "=== TARGET SOURCE CONTENT ==="
+          while IFS= read -r f; do
+            echo
+            echo "===== FILE: $f ====="
+            sed -n '1,500p' "$f"
+          done < <(find work/jadx/sources -type f \
+            \( -name 'EdsActivity.java' -o -name 'FileRepositoryImpl.java' -o -name 'CertificateUtils.java' \
+            -o -name 'KeyStoreLoader.java' -o -name 'KeyStoreExtracter.java' -o -name 'KeyStoreWrapper.java' \
+            -o -name 'AppKeyStore.java' -o -name 'EdsProductionUtils.java' \) \
+            -print | sort)
+
+          echo "=== TARGET METHOD CONTEXT ==="
+          grep -RniE -C 25 'getP12Directory|getP12Files|getFileForAuth|getFileForSign|getFileGost|exportFileToDownloads|certificateFileForAuth|certificateFileForSign|certificateFileGost|AndroidKeyStore|mgov_keystore|getCertificate\(|getKey\(' work/jadx/sources 2>/dev/null | head -n 2500 || true
+
       - name: Decode APK with Apktool
         run: |
           set -e
