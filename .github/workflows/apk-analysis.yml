@@ -123,3 +123,36 @@ jobs:
           test -f work/decoded/AndroidManifest.xml
           echo "Apktool decode completed"
           du -sh work/decoded
+
+      - name: Rebuild original APK (baseline)
+        run: |
+          set -e
+          rm -f work/baseline-unsigned.apk work/baseline-aligned.apk work/baseline-signed.apk work/test-signing.jks
+          java -jar tools/apktool.jar b work/decoded -o work/baseline-unsigned.apk
+          test -s work/baseline-unsigned.apk
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+          ZIPALIGN="$(find "$SDK_ROOT/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$ZIPALIGN"
+          test -f "$APKSIGNER"
+          "$ZIPALIGN" -f 4 work/baseline-unsigned.apk work/baseline-aligned.apk
+          keytool -genkeypair -v -keystore work/test-signing.jks -storepass changeit -keypass changeit -alias test -keyalg RSA -keysize 2048 -validity 3650 -dname "CN=APK Analysis Test,O=antew1,C=KZ"
+          "$APKSIGNER" sign --ks work/test-signing.jks --ks-pass pass:changeit --key-pass pass:changeit --out work/baseline-signed.apk work/baseline-aligned.apk
+          "$APKSIGNER" verify --verbose work/baseline-signed.apk
+          sha256sum work/base.apk work/baseline-signed.apk
+          ls -lh work/baseline-signed.apk
+
+      - name: Upload baseline test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-signed-apk
+          path: work/baseline-signed.apk
+          if-no-files-found: error
+          retention-days: 7
+        run: |
+          set -e
+          rm -rf work/decoded
+          java -jar tools/apktool.jar d work/base.apk -o work/decoded --force
+          test -f work/decoded/AndroidManifest.xml
+          echo "Apktool decode completed"
+          du -sh work/decoded
