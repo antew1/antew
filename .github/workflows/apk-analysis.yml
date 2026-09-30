@@ -209,22 +209,3 @@ jobs:
               raise SystemExit("exportCertificate method insertion failed")
           print("exportCertificate handler method inserted")
           PY
-
-
-      - name: Build patched APK
-        run: |
-          set -e
-          rm -f work/patched.apk
-          java -jar tools/apktool.jar b work/decoded -o work/patched.apk
-          test -s work/patched.apk
-          file work/patched.apk
-          unzip -tq work/patched.apk >/dev/null
-          echo "Patched APK build completed"
-          ls -lh work/patched.apk
-
-      - name: Upload patched APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: patched-apk
-          path: work/patched.apk
-          if-no-files-found: error
