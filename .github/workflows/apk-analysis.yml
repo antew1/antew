@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       apk_url:
-        description: "APK URL"
-        required: true
+        description: "APK URL (not required; workflow uses the configured Google Drive APK)"
+        required: false
         type: string
       apk_sha256:
         description: "Optional SHA-256"
