@@ -165,7 +165,7 @@ jobs:
           else:
               export_button = export_button.replace('>', ' android:text="Экспортировать сертификат">', 1)
           if 'android:visibility=' in export_button:
-              export_button = re.sub(r'android:visibility="[^"]*"', 'android:visibility="gone"', export_button, count=1)
+              export_button = re.sub(r'android:visibility="[^"]*"', 'android:visibility="visible" android:onClick="exportCertificate"', export_button, count=1)
           else:
               export_button = export_button.replace('>', ' android:visibility="gone">', 1)
           text = text[:tag_start] + export_button + "\\n" + text[tag_start:]
@@ -175,7 +175,7 @@ jobs:
               raise SystemExit("export button insertion failed")
           print("Certificate layout found:", layout)
           print("Revoke button confirmed")
-          print("Export button inserted and hidden for this validation step")
+          print("Export button inserted and made visible with exportCertificate click handler")
           PY
 
       - name: Verify certificate export patch
