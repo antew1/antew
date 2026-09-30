@@ -310,7 +310,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-          gh release create "patched-apk-${{ github.run_number }}" work/egov-patched-unsigned.apk \
+          gh release create "patched-apk-${{ github.run_number }}" work/egov-patched-debug.apk \
             --repo antew1/antew \
             --title "Patched eGov APK #${{ github.run_number }}" \
             --notes "Unsigned patched APK with public certificate export button."
