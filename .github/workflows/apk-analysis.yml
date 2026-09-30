@@ -192,9 +192,6 @@ jobs:
           text = smali.read_text(encoding="utf-8")
           if ".method public exportCertificate(Landroid/view/View;)V" in text:
               raise SystemExit("exportCertificate method already exists")
-          pos = text.rfind(".end class")
-          if pos < 0:
-              raise SystemExit("EdsActivity .end class not found")
           method = "\n".join([
               "    .method public exportCertificate(Landroid/view/View;)V",
               "        .locals 0",
@@ -203,7 +200,7 @@ jobs:
               "    .end method",
               "",
           ])
-          text = text[:pos] + method + text[pos:]
+          text = text.rstrip() + "\n\n" + method
           smali.write_text(text, encoding="utf-8")
           check = smali.read_text(encoding="utf-8")
           if ".method public exportCertificate(Landroid/view/View;)V" not in check:
