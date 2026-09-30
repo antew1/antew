@@ -1,0 +1,14 @@
+name: Actions Probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Probe
+        run: |
+          echo "GitHub Actions runner started successfully"
+          uname -a
+          java -version 2>&1 || true
