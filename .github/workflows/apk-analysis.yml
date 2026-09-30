@@ -40,3 +40,10 @@ jobs:
           set -e
           sha256sum work/base.apk
           test -s work/base.apk
+
+      - name: Install Apktool
+        run: |
+          set -e
+          mkdir -p tools
+          curl -fL --retry 2 --retry-all-errors https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar -o tools/apktool.jar
+          java -jar tools/apktool.jar --version
