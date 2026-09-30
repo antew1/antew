@@ -47,3 +47,12 @@ jobs:
           mkdir -p tools
           curl -fL --retry 2 --retry-all-errors https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar -o tools/apktool.jar
           java -jar tools/apktool.jar --version
+
+      - name: Decode APK with Apktool
+        run: |
+          set -e
+          rm -rf work/decoded
+          java -jar tools/apktool.jar d work/base.apk -o work/decoded --force
+          test -f work/decoded/AndroidManifest.xml
+          echo "Apktool decode completed"
+          du -sh work/decoded
