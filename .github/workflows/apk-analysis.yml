@@ -164,10 +164,12 @@ jobs:
               export_button = re.sub(r'android:text="[^"]*"', 'android:text="Экспортировать сертификат"', export_button, count=1)
           else:
               export_button = export_button.replace('>', ' android:text="Экспортировать сертификат">', 1)
+          export_button = re.sub(r'\\s+android:onClick="[^"]*"', '', export_button, count=1)
           if 'android:visibility=' in export_button:
-              export_button = re.sub(r'android:visibility="[^"]*"', 'android:visibility="visible" android:onClick="exportCertificate"', export_button, count=1)
+              export_button = re.sub(r'android:visibility="[^"]*"', 'android:visibility="visible"', export_button, count=1)
           else:
-              export_button = export_button.replace('>', ' android:visibility="gone">', 1)
+              export_button = export_button.replace('>', ' android:visibility="visible"', 1)
+          export_button = export_button.replace('>', ' android:onClick="exportCertificate">', 1)
           text = text[:tag_start] + export_button + "\n" + text[tag_start:]
           layout.write_text(text, encoding="utf-8")
           check = layout.read_text(encoding="utf-8")
