@@ -149,10 +149,3 @@ jobs:
           path: work/baseline-signed.apk
           if-no-files-found: error
           retention-days: 7
-        run: |
-          set -e
-          rm -rf work/decoded
-          java -jar tools/apktool.jar d work/base.apk -o work/decoded --force
-          test -f work/decoded/AndroidManifest.xml
-          echo "Apktool decode completed"
-          du -sh work/decoded
