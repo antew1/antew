@@ -69,7 +69,11 @@ jobs:
           set -e
           rm -rf work/jadx
           mkdir -p work/jadx
+          set +e
           tools/jadx/bin/jadx --no-res --no-imports --show-bad-code -d work/jadx work/base.apk
+          JADX_EXIT=$?
+          echo "JADX exit code: $JADX_EXIT"
+          set -e
           echo "=== EDS / KeyStore symbol hits ==="
           grep -RniE 'EdsActivity|FileRepositoryImpl|CertificateUtils|KeyStoreLoader|KeyStoreExtracter|KeyStoreWrapper|AppKeyStore|EdsProductionUtils|getP12Directory|getFileForAuth|getFileForSign|getFileGost|AndroidKeyStore|mgov_keystore' work/jadx 2>/dev/null | head -n 500 || true
 
