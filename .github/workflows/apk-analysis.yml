@@ -177,3 +177,11 @@ jobs:
           print("Revoke button confirmed")
           print("Export button inserted and hidden for this validation step")
           PY
+
+      - name: Verify certificate export patch
+        run: |
+          set -e
+          test -f work/decoded/smali_classes9/kz/mobile/mgov/features/eds/presentation/EdsActivity.smali
+          echo "EdsActivity smali found"
+          grep -q 'fragmentsHashMap' work/decoded/smali_classes9/kz/mobile/mgov/features/eds/presentation/EdsActivity.smali
+          echo "EdsActivity fragment map confirmed"
