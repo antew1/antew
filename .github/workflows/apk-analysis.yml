@@ -2,15 +2,6 @@ name: APK Analysis
 
 on:
   workflow_dispatch:
-    inputs:
-      apk_url:
-        description: "APK URL"
-        required: true
-        type: string
-      apk_sha256:
-        description: "Optional SHA-256"
-        required: false
-        type: string
 
 jobs:
   analyze:
