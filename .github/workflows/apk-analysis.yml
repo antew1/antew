@@ -32,12 +32,32 @@ jobs:
           set -e
           mkdir -p work
           python3 -m pip install --quiet --break-system-packages gdown
-          echo "Downloading APK from supplied URL..."
-          gdown --fuzzy "${{ inputs.apk_url }}" -O work/base.apk
+          echo "Downloading APK from supplied Google Drive URL..."
+          URL="${{ inputs.apk_url }}"
+          echo "Source URL: $URL"
+
+          rm -f work/base.apk
+          if ! gdown --fuzzy "$URL" -O work/base.apk; then
+            echo "Direct URL download failed; trying to extract the Google Drive file ID..."
+            ID="$(printf '%s' "$URL" | sed -nE 's#.*drive\\.google\\.com/(file/d/|open\\?id=|uc\\?id=)([A-Za-z0-9_-]+).*#\\2#p')"
+            if [ -z "$ID" ]; then
+              echo "ERROR: Could not extract a Google Drive file ID from the supplied URL."
+              exit 1
+            fi
+            echo "Google Drive file ID detected."
+            rm -f work/base.apk
+            gdown "$ID" -O work/base.apk
+          fi
+
           file work/base.apk
           ls -lh work/base.apk
-          unzip -tq work/base.apk >/dev/null
-          unzip -l work/base.apk | grep -q '^.*AndroidManifest.xml'
+          if ! unzip -tq work/base.apk >/dev/null 2>&1; then
+            echo "ERROR: Downloaded file is not a valid ZIP/APK."
+            echo "First 200 bytes:"
+            head -c 200 work/base.apk | cat -v || true
+            exit 1
+          fi
+          unzip -l work/base.apk | grep -q 'AndroidManifest.xml'
           echo "Valid ZIP/APK detected"
 
       - name: Verify APK
