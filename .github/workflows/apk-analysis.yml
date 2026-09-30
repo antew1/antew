@@ -287,8 +287,3 @@ jobs:
           echo "Patched APK built"
           ls -lh work/egov-patched-unsigned.apk
 
-      - name: Upload patched APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: egov-patched-unsigned
-          path: work/egov-patched-unsigned.apk
