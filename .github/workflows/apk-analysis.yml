@@ -26,3 +26,11 @@ jobs:
         run: |
           echo "APK URL:"
           printf '%s\n' '${{ inputs.apk_url }}'
+
+      - name: Download APK
+        run: |
+          set -e
+          mkdir -p work
+          curl -fL --retry 2 --retry-all-errors '${{ inputs.apk_url }}' -o work/base.apk
+          file work/base.apk
+          ls -lh work/base.apk
