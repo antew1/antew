@@ -32,7 +32,7 @@ jobs:
           set -e
           mkdir -p work
           python3 -m pip install --quiet --break-system-packages gdown
-          gdown --fuzzy '${{ inputs.apk_url }}' -O work/base.apk
+          gdown '1Vd107Bv_AdULQ6wNG66dRXOyfdltiMdX' -O work/base.apk
           file work/base.apk
           ls -lh work/base.apk
           unzip -tq work/base.apk >/dev/null
