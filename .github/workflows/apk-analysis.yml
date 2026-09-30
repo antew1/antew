@@ -52,6 +52,27 @@ jobs:
           curl -fL --retry 2 --retry-all-errors https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar -o tools/apktool.jar
           java -jar tools/apktool.jar --version
 
+
+      - name: Install JADX
+        run: |
+          set -e
+          mkdir -p tools
+          curl -fL --retry 2 --retry-all-errors https://github.com/skylot/jadx/releases/download/v1.5.3/jadx-1.5.3.zip -o tools/jadx.zip
+          rm -rf tools/jadx
+          mkdir -p tools/jadx
+          unzip -q tools/jadx.zip -d tools/jadx
+          chmod +x tools/jadx/bin/jadx
+          tools/jadx/bin/jadx --version
+
+      - name: Analyze DEX and EDS symbols
+        run: |
+          set -e
+          rm -rf work/jadx
+          mkdir -p work/jadx
+          tools/jadx/bin/jadx --no-res --no-imports --show-bad-code -d work/jadx work/base.apk
+          echo "=== EDS / KeyStore symbol hits ==="
+          grep -RniE 'EdsActivity|FileRepositoryImpl|CertificateUtils|KeyStoreLoader|KeyStoreExtracter|KeyStoreWrapper|AppKeyStore|EdsProductionUtils|getP12Directory|getFileForAuth|getFileForSign|getFileGost|AndroidKeyStore|mgov_keystore' work/jadx 2>/dev/null | head -n 500 || true
+
       - name: Decode APK with Apktool
         run: |
           set -e
