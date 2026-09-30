@@ -34,3 +34,9 @@ jobs:
           curl -fL --retry 2 --retry-all-errors '${{ inputs.apk_url }}' -o work/base.apk
           file work/base.apk
           ls -lh work/base.apk
+
+      - name: Verify APK
+        run: |
+          set -e
+          sha256sum work/base.apk
+          test -s work/base.apk
