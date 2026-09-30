@@ -176,6 +176,28 @@ jobs:
           print("Certificate layout found:", layout)
           print("Revoke button confirmed")
           print("Export button inserted and made visible with exportCertificate click handler")
+          fragment = Path("work/decoded/smali_classes9/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.smali")
+          ftext = fragment.read_text(encoding="utf-8")
+          if ".method public final getCertificatePem()Ljava/lang/String;" not in ftext:
+              fmethod = "\n".join([
+                  "    .method public final getCertificatePem()Ljava/lang/String;",
+                  "        .locals 1",
+                  "",
+                  "        iget-object v0, p0, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;->certificate:Lkz/mobile/mgov/core/model/Certificate;",
+                  "        if-eqz v0, :pem_null",
+                  "        invoke-virtual {v0}, Lkz/mobile/mgov/core/model/Certificate;->getPem()Ljava/lang/String;",
+                  "        move-result-object v0",
+                  "        return-object v0",
+                  "",
+                  "        :pem_null",
+                  "        const/4 v0, 0x0",
+                  "        return-object v0",
+                  "    .end method",
+                  "",
+              ])
+              ftext = ftext.rstrip() + "\n\n" + fmethod
+              fragment.write_text(ftext, encoding="utf-8")
+          print("CertificateInfoFragment PEM getter added")
           PY
 
       - name: Verify certificate export patch
