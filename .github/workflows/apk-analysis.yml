@@ -146,7 +146,7 @@ jobs:
           if 'android:id="@id/revoke"' not in text and 'android:id="@+id/revoke"' not in text:
               raise SystemExit("revoke button not found")
           import re
-          match = re.search(r'<(?:[A-Za-z_][\\w.]*:)?[A-Za-z_][\\w.]*\\b(?=[^>]*android:id="@id/revoke"\\b)[^>]*(?:/>|>.*?</(?:[A-Za-z_][\\w.]*:)?[A-Za-z_][\\w.]*)>)', text, re.DOTALL)
+          match = re.search(r'<(?P<tag>[A-Za-z_][\\w.:]*)\\b(?=[^>]*android:id="@id/revoke"\\b)[^>]*(?:/>|>.*?</(?P=tag)>)', text, re.DOTALL)
           if not match:
               raise SystemExit("revoke view element not found")
           button = match.group(0)
