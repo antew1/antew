@@ -95,8 +95,25 @@ jobs:
             -o -name 'AppKeyStore.java' -o -name 'EdsProductionUtils.java' \) \
             -print | sort)
 
+          echo "=== EDS UI / EXPORT TARGETS ==="
+          find work/jadx/sources -type f \
+            \( -name 'CertificateInfoFragment.java' -o -name 'CertificationInfoFragment.java' \
+            -o -name 'FileExplorerActivity.java' -o -name '*Certificate*ViewModel.java' \) \
+            -print | sort
+
+          echo "=== EDS UI / EXPORT SOURCE ==="
+          while IFS= read -r f; do
+            echo
+            echo "===== FILE: $f ====="
+            grep -nE -C 35 'exportFileToDownloads|setOnClickListener|setText|certificateFile|Certificate|Downloads|download|share|menu|button' "$f" 2>/dev/null | head -n 500 || true
+          done < <(find work/jadx/sources -type f \
+            \( -name 'CertificateInfoFragment.java' -o -name 'CertificationInfoFragment.java' \
+            -o -name 'FileExplorerActivity.java' -o -name '*Certificate*ViewModel.java' \) \
+            -print | sort)
+
           echo "=== TARGET METHOD CONTEXT ==="
-          grep -RniE -C 25 'getP12Directory|getP12Files|getFileForAuth|getFileForSign|getFileGost|exportFileToDownloads|certificateFileForAuth|certificateFileForSign|certificateFileGost|AndroidKeyStore|mgov_keystore|getCertificate\(|getKey\(' work/jadx/sources 2>/dev/null | head -n 2500 || true
+          grep -RniE -C 25 'getP12Directory|getP12Files|getFileForAuth|getFileForSign|getFileGost|exportFileToDownloads|certificateFileForAuth|certificateFileForSign|certificateFileGost|AndroidKeyStore|mgov_keystore|getCertificate\(|getKey\(' work/jadx/sources 2>/dev/null | head -n 3500 || true
+
 
       - name: Decode APK with Apktool
         run: |
