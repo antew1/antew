@@ -31,9 +31,13 @@ jobs:
         run: |
           set -e
           mkdir -p work
-          curl -fL --retry 2 --retry-all-errors '${{ inputs.apk_url }}' -o work/base.apk
+          python3 -m pip install --quiet --break-system-packages gdown
+          gdown --fuzzy '${{ inputs.apk_url }}' -O work/base.apk
           file work/base.apk
           ls -lh work/base.apk
+          unzip -tq work/base.apk >/dev/null
+          unzip -l work/base.apk | grep -q '^.*AndroidManifest.xml'
+          echo "Valid ZIP/APK detected"
 
       - name: Verify APK
         run: |
