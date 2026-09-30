@@ -234,7 +234,9 @@ jobs:
               invoke-virtual {v6, v7, v8}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
               const-string v7, "is_pending"
               const/4 v8, 0x1
-              invoke-virtual {v6, v7, v8}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/Integer;)V
+              invoke-static {v8}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+              move-result-object v14
+              invoke-virtual {v6, v7, v14}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/Integer;)V
               invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
               move-result-object v7
               sget-object v8, Landroid/provider/MediaStore$Downloads;->EXTERNAL_CONTENT_URI:Landroid/net/Uri;
@@ -252,7 +254,9 @@ jobs:
               invoke-direct {v10}, Landroid/content/ContentValues;-><init>()V
               const-string v11, "is_pending"
               const/4 v12, 0x0
-              invoke-virtual {v10, v11, v12}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/Integer;)V
+              invoke-static {v12}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+              move-result-object v14
+              invoke-virtual {v10, v11, v14}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/Integer;)V
               const/4 v13, 0x0
               invoke-virtual {v7, v8, v10, v13, v13}, Landroid/content/ContentResolver;->update(Landroid/net/Uri;Landroid/content/ContentValues;Ljava/lang/String;[Ljava/lang/String;)I
               goto :success
