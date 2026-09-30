@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       apk_url:
-        description: "Google Drive or direct HTTPS APK URL"
+        description: "APK URL"
         required: true
         type: string
       apk_sha256:
@@ -15,101 +15,9 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Prepare Java and tools
-        shell: bash
+      - name: Runner test
         run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y openjdk-21-jdk unzip wget curl p7zip-full python3-pip
-          echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> "$GITHUB_ENV"
-          echo "/usr/lib/jvm/java-21-openjdk-amd64/bin:$PATH" >> "$GITHUB_PATH"
-          java -version
-          mkdir -p "$HOME/android-sdk/cmdline-tools"
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O /tmp/cmdline-tools.zip
-          unzip -q /tmp/cmdline-tools.zip -d "$HOME/android-sdk/cmdline-tools"
-          mv "$HOME/android-sdk/cmdline-tools/cmdline-tools" "$HOME/android-sdk/cmdline-tools/latest"
-          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/android-sdk/build-tools/36.1.0" >> "$GITHUB_PATH"
-          yes | "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "build-tools;36.1.0"
-          apksigner --version
-          zipalign -h >/dev/null 2>&1 || true
-
-      - name: Install Apktool
-        run: |
-          wget -q https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar -O /tmp/apktool.jar
-          java -jar /tmp/apktool.jar --version
-
-      - name: Install JADX
-        run: |
-          wget -q https://github.com/skylot/jadx/releases/download/v1.5.3/jadx-1.5.3.zip -O /tmp/jadx.zip
-          unzip -q /tmp/jadx.zip -d "$HOME/jadx"
-          "$HOME/jadx/bin/jadx" --version
-
-      - name: Download APK
-        env:
-          APK_URL: ${{ inputs.apk_url }}
-          APK_SHA256: ${{ inputs.apk_sha256 }}
-        run: |
-          set -euo pipefail
-          mkdir -p work
-          python3 -m pip install --quiet --break-system-packages gdown
-          if [[ "$APK_URL" == *"drive.google.com"* ]]; then
-            gdown --fuzzy "$APK_URL" -O work/base.apk
-          else
-            curl -fL --retry 3 --retry-all-errors "$APK_URL" -o work/base.apk
-          fi
-          test -s work/base.apk
-          file work/base.apk
-          unzip -tq work/base.apk >/dev/null
-          sha256sum work/base.apk | tee work/apk.sha256
-          if [[ -n "$APK_SHA256" ]]; then
-            echo "$APK_SHA256  work/base.apk" | sha256sum -c -
-          fi
-          aapt dump badging work/base.apk | head -n 20 | tee work/badging.txt
-
-      - name: Decompile with Apktool
-        run: |
-          java -jar /tmp/apktool.jar d -f work/base.apk -o work/apktool-out 2>&1 | tee work/apktool.log
-
-      - name: Decompile with JADX
-        run: |
-          "$HOME/jadx/bin/jadx" --show-bad-code --deobf -d work/jadx-out work/base.apk 2>&1 | tee work/jadx.log
-
-      - name: Analyze EDS and certificate code
-        run: |
-          set -euo pipefail
-          {
-            echo "=== EDS / certificate symbols ==="
-            grep -RniE "EdsActivity|EdsProductionUtils|CertificateUtils|KeyStoreExtracter|KeyStoreLoader|AppKeyStore|getCertificate|getP12Directory|exportFileToDownloads" work/jadx-out 2>/dev/null | head -n 2000 || true
-            echo
-            echo "=== Relevant source files ==="
-            find work/jadx-out -type f \( -iname "*EdsActivity*" -o -iname "*CertificateUtils*" -o -iname "*EdsProductionUtils*" -o -iname "*KeyStoreExtracter*" -o -iname "*KeyStoreLoader*" -o -iname "*AppKeyStore*" -o -iname "*FileRepositoryImpl*" \) -print | sort
-          } | tee work/eds-report.txt
-
-      - name: Package results
-        run: |
-          tar -czf work/jadx-out.tar.gz -C work jadx-out
-          tar -czf work/apktool-out.tar.gz -C work apktool-out
-
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: apk-analysis
-          path: |
-            work/apk.sha256
-            work/badging.txt
-            work/eds-report.txt
-            work/apktool.log
-            work/jadx.log
-            work/jadx-out.tar.gz
-            work/apktool-out.tar.gz
-          compression-level: 0
-          if-no-files-found: error
+          echo "APK Analysis runner started"
+          java -version 2>&1 || true
+          echo "APK URL supplied: ${{ inputs.apk_url != '' }}"
