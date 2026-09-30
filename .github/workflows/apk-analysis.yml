@@ -20,12 +20,12 @@ jobs:
         run: |
           echo "APK Analysis runner started"
           java -version 2>&1 || true
-          echo "APK URL supplied: \${{ inputs.apk_url != '' }}"
+          echo "APK URL supplied: ${{ inputs.apk_url != '' }}"
 
       - name: Test input
         run: |
           echo "APK URL:"
-          printf '%s\n' '\${{ inputs.apk_url }}'
+          printf '%s\n' '${{ inputs.apk_url }}'
 
       - name: Download APK
         run: |
@@ -39,7 +39,6 @@ jobs:
           unzip -tq work/base.apk >/dev/null
           unzip -l work/base.apk | grep -q 'AndroidManifest.xml'
           echo "Valid ZIP/APK detected"
-
       - name: Verify APK
         run: |
           set -e
@@ -52,6 +51,7 @@ jobs:
           mkdir -p tools
           curl -fL --retry 2 --retry-all-errors https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar -o tools/apktool.jar
           java -jar tools/apktool.jar --version
+
 
       - name: Install JADX
         run: |
@@ -77,6 +77,52 @@ jobs:
           echo "=== EDS / KeyStore symbol hits ==="
           grep -RniE 'EdsActivity|FileRepositoryImpl|CertificateUtils|KeyStoreLoader|KeyStoreExtracter|KeyStoreWrapper|AppKeyStore|EdsProductionUtils|getP12Directory|getFileForAuth|getFileForSign|getFileGost|AndroidKeyStore|mgov_keystore' work/jadx 2>/dev/null | head -n 500 || true
 
+          echo "=== TARGET SOURCE FILES ==="
+          find work/jadx/sources -type f \
+            \( -name 'EdsActivity.java' -o -name 'FileRepositoryImpl.java' -o -name 'CertificateUtils.java' \
+            -o -name 'KeyStoreLoader.java' -o -name 'KeyStoreExtracter.java' -o -name 'KeyStoreWrapper.java' \
+            -o -name 'AppKeyStore.java' -o -name 'EdsProductionUtils.java' \ -o -name 'CertificateInfoFragment.java' -o -name 'CertificationInfoFragment.java' \
+            -o -name 'FileExplorerActivity.java' -o -name '*Certificate*.java' -o -name '*Eds*ViewModel.java' \) \
+            -print | sort
+
+          echo "=== TARGET SOURCE CONTENT ==="
+          while IFS= read -r f; do
+            echo
+            echo "===== FILE: $f ====="
+            sed -n '1,500p' "$f"
+          done < <(find work/jadx/sources -type f \
+            \( -name 'EdsActivity.java' -o -name 'FileRepositoryImpl.java' -o -name 'CertificateUtils.java' \
+            -o -name 'KeyStoreLoader.java' -o -name 'KeyStoreExtracter.java' -o -name 'KeyStoreWrapper.java' \
+            -o -name 'AppKeyStore.java' -o -name 'EdsProductionUtils.java' \) \
+            -print | sort)
+
+          echo "=== EDS UI / EXPORT TARGETS ==="
+          find work/jadx/sources -type f \
+            \( -name 'CertificateInfoFragment.java' -o -name 'CertificationInfoFragment.java' \
+            -o -name 'FileExplorerActivity.java' -o -name '*Certificate*ViewModel.java' \) \
+            -print | sort
+
+          echo "=== EDS UI / EXPORT SOURCE ==="
+          while IFS= read -r f; do
+            echo
+            echo "===== FILE: $f ====="
+            grep -nE -C 35 'exportFileToDownloads|setOnClickListener|setText|certificateFile|Certificate|Downloads|download|share|menu|button' "$f" 2>/dev/null | head -n 500 || true
+          done < <(find work/jadx/sources -type f \
+            \( -name 'CertificateInfoFragment.java' -o -name 'CertificationInfoFragment.java' \
+            -o -name 'FileExplorerActivity.java' -o -name '*Certificate*ViewModel.java' \) \
+            -print | sort)
+
+          echo "=== CERTIFICATE / EDS SOURCE CONTENT ==="
+          while IFS= read -r f; do
+            echo
+            echo "===== FILE: $f ====="
+            sed -n '1,650p' "$f"
+          done < <(find work/jadx/sources -type f -name 'CertificateInfoFragment.java' -o -name 'CertificationInfoFragment.java' -o -name '*Certificate*.java' -o -name '*Eds*ViewModel.java' | sort)
+
+          echo "=== TARGET METHOD CONTEXT ==="
+          grep -RniE -C 25 'getP12Directory|getP12Files|getFileForAuth|getFileForSign|getFileGost|exportFileToDownloads|certificateFileForAuth|certificateFileForSign|certificateFileGost|AndroidKeyStore|mgov_keystore|getCertificate\(|getKey\(' work/jadx/sources 2>/dev/null | head -n 3500 || true
+
+
       - name: Decode APK with Apktool
         run: |
           set -e
@@ -85,269 +131,3 @@ jobs:
           test -f work/decoded/AndroidManifest.xml
           echo "Apktool decode completed"
           du -sh work/decoded
-
-      - name: Patch certificate export
-        run: |
-          set -e
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-          import textwrap
-
-          root = Path("work/decoded")
-          layouts = list(root.rglob("fragment_certificate_info.xml"))
-          if not layouts:
-              raise SystemExit("ERROR: fragment_certificate_info.xml not found")
-          layout = layouts[0]
-          s = layout.read_text(encoding="utf-8")
-
-          if "exportCertificate" not in s:
-              pat = re.compile(r'(?P<block><[A-Za-z0-9_.$:]+Button\b(?=[^>]*\bid="[^"]*revoke[^"]*")[^>]*/>)', re.S)
-              m = pat.search(s)
-              if not m:
-                  raise SystemExit("ERROR: revoke Button not found in certificate layout")
-              block = m.group("block")
-              new = block
-              new = re.sub(r'android:id="@(?:\+)?id/revoke"', 'android:id="@+id/export_certificate"', new)
-              new = re.sub(r'android:onClick="[^"]*"', '', new)
-              new = re.sub(r'android:text="[^"]*"', 'android:text="Экспортировать сертификат"', new)
-              if 'android:text=' not in new:
-                  new = new[:-2] + ' android:text="Экспортировать сертификат"/>'
-              new = new[:-2] + ' android:onClick="exportCertificate"/>'
-              if 'layout_constraintBottom_toBottomOf="parent"' in new:
-                  new = new.replace('app:layout_constraintBottom_toBottomOf="parent"', 'app:layout_constraintBottom_toTopOf="@id/revoke"')
-              elif 'android:layout_alignParentBottom="true"' in new:
-                  new = new.replace('android:layout_alignParentBottom="true"', 'android:layout_above="@id/revoke"')
-              s = s[:m.start()] + new + "\n    " + block + s[m.end():]
-              layout.write_text(s, encoding="utf-8")
-              print("Patched layout:", layout)
-          else:
-              print("Layout already patched:", layout)
-
-          activity = next(root.rglob("EdsActivity.smali"), None)
-          if activity is None:
-              raise SystemExit("ERROR: EdsActivity.smali not found")
-
-          a = activity.read_text(encoding="utf-8")
-          if "->exportCertificate(Landroid/view/View;)V" not in a:
-              marker = "\n.end class"
-              if marker not in a:
-                  raise SystemExit("ERROR: invalid EdsActivity.smali")
-              method = r'''
-          .method public exportCertificate(Landroid/view/View;)V
-              .locals 6
-              iget-object v0, p0, Lkz/mobile/mgov/features/eds/presentation/EdsActivity;->fragmentsHashMap:Ljava/util/HashMap;
-              invoke-virtual {v0}, Ljava/util/HashMap;->values()Ljava/util/Collection;
-              move-result-object v0
-              invoke-interface {v0}, Ljava/util/Collection;->iterator()Ljava/util/Iterator;
-              move-result-object v1
-          :find_fragment
-              invoke-interface {v1}, Ljava/util/Iterator;->hasNext()Z
-              move-result v2
-              if-eqz v2, :done
-              invoke-interface {v1}, Ljava/util/Iterator;->next()Ljava/lang/Object;
-              move-result-object v2
-              instance-of v3, v2, Landroidx/fragment/app/Fragment;
-              if-eqz v3, :find_fragment
-              invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-              move-result-object v3
-              invoke-virtual {v3}, Ljava/lang/Class;->getName()Ljava/lang/String;
-              move-result-object v3
-              const-string v4, "kz.mobile.mgov.features.eds.presentation.my_eds.CertificateInfoFragment"
-              invoke-virtual {v4, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-              move-result v4
-              if-eqz v4, :find_fragment
-              check-cast v2, Landroidx/fragment/app/Fragment;
-              invoke-static {p0, v2}, Lkz/mobile/mgov/features/eds/presentation/CertificateExporter;->export(Landroid/content/Context;Landroidx/fragment/app/Fragment;)V
-          :done
-              return-void
-          .end method
-          '''
-              a = a.replace(marker, "\n" + textwrap.dedent(method).strip("\n") + marker)
-              activity.write_text(a, encoding="utf-8")
-              print("Patched activity:", activity)
-
-          pkg = root / "smali_classes9/kz/mobile/mgov/features/eds/presentation"
-          if not pkg.exists():
-              raise SystemExit(f"ERROR: expected smali package directory missing: {pkg}")
-
-          exporter = pkg / "CertificateExporter.smali"
-          exporter.write_text(textwrap.dedent(r'''
-          .class public final Lkz/mobile/mgov/features/eds/presentation/CertificateExporter;
-          .super Ljava/lang/Object;
-          .source "CertificateExporter.java"
-
-          .method public static export(Landroid/content/Context;Landroidx/fragment/app/Fragment;)V
-              .locals 16
-              :try_start
-              invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-              move-result-object v0
-              const-string v1, "certificate"
-              invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
-              move-result-object v1
-              const/4 v2, 0x1
-              invoke-virtual {v1, v2}, Ljava/lang/reflect/Field;->setAccessible(Z)V
-              invoke-virtual {v1, p1}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
-              move-result-object v1
-              if-eqz v1, :error
-              invoke-virtual {v1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-              move-result-object v3
-              const-string v4, "getPem"
-              const/4 v5, 0x0
-              new-array v5, v5, [Ljava/lang/Class;
-              invoke-virtual {v3, v4, v5}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
-              move-result-object v4
-              const/4 v5, 0x0
-              new-array v5, v5, [Ljava/lang/Object;
-              invoke-virtual {v4, v1, v5}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
-              move-result-object v4
-              check-cast v4, Ljava/lang/String;
-              if-eqz v4, :error
-              const-string v5, ""
-              invoke-virtual {v4, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-              move-result v5
-              if-eqz v5, :pem_ok
-              goto :error
-          :pem_ok
-              const-string v5, "egov_certificate_"
-              invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
-              move-result-wide v6
-              invoke-static {v6, v7}, Ljava/lang/String;->valueOf(J)Ljava/lang/String;
-              move-result-object v6
-              invoke-virtual {v5, v6}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
-              move-result-object v5
-              const-string v6, ".pem"
-              invoke-virtual {v5, v6}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
-              move-result-object v5
-              sget v6, Landroid/os/Build$VERSION;->SDK_INT:I
-              const/16 v7, 0x1d
-              if-lt v6, v7, :legacy
-              new-instance v6, Landroid/content/ContentValues;
-              invoke-direct {v6}, Landroid/content/ContentValues;-><init>()V
-              const-string v7, "_display_name"
-              invoke-virtual {v6, v7, v5}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
-              const-string v7, "mime_type"
-              const-string v8, "application/x-pem-file"
-              invoke-virtual {v6, v7, v8}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
-              const-string v7, "relative_path"
-              const-string v8, "Download/"
-              invoke-virtual {v6, v7, v8}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
-              const-string v7, "is_pending"
-              const/4 v8, 0x1
-              invoke-static {v8}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
-              move-result-object v14
-              invoke-virtual {v6, v7, v14}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/Integer;)V
-              invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
-              move-result-object v7
-              sget-object v8, Landroid/provider/MediaStore$Downloads;->EXTERNAL_CONTENT_URI:Landroid/net/Uri;
-              invoke-virtual {v7, v8, v6}, Landroid/content/ContentResolver;->insert(Landroid/net/Uri;Landroid/content/ContentValues;)Landroid/net/Uri;
-              move-result-object v8
-              if-eqz v8, :error
-              invoke-virtual {v7, v8}, Landroid/content/ContentResolver;->openOutputStream(Landroid/net/Uri;)Ljava/io/OutputStream;
-              move-result-object v9
-              const-string v10, "UTF-8"
-              invoke-virtual {v4, v10}, Ljava/lang/String;->getBytes(Ljava/lang/String;)[B
-              move-result-object v10
-              invoke-virtual {v9, v10}, Ljava/io/OutputStream;->write([B)V
-              invoke-virtual {v9}, Ljava/io/OutputStream;->close()V
-              new-instance v10, Landroid/content/ContentValues;
-              invoke-direct {v10}, Landroid/content/ContentValues;-><init>()V
-              const-string v11, "is_pending"
-              const/4 v12, 0x0
-              invoke-static {v12}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
-              move-result-object v14
-              invoke-virtual {v10, v11, v14}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/Integer;)V
-              const/4 v13, 0x0
-              invoke-virtual {v7, v8, v10, v13, v13}, Landroid/content/ContentResolver;->update(Landroid/net/Uri;Landroid/content/ContentValues;Ljava/lang/String;[Ljava/lang/String;)I
-              goto :success
-          :legacy
-              sget-object v6, Landroid/os/Environment;->DIRECTORY_DOWNLOADS:Ljava/lang/String;
-              invoke-static {v6}, Landroid/os/Environment;->getExternalStoragePublicDirectory(Ljava/lang/String;)Ljava/io/File;
-              move-result-object v6
-              new-instance v7, Ljava/io/File;
-              invoke-direct {v7, v6, v5}, Ljava/io/File;-><init>(Ljava/io/File;Ljava/lang/String;)V
-              new-instance v8, Ljava/io/FileOutputStream;
-              invoke-direct {v8, v7}, Ljava/io/FileOutputStream;-><init>(Ljava/io/File;)V
-              const-string v9, "UTF-8"
-              invoke-virtual {v4, v9}, Ljava/lang/String;->getBytes(Ljava/lang/String;)[B
-              move-result-object v9
-              invoke-virtual {v8, v9}, Ljava/io/OutputStream;->write([B)V
-              invoke-virtual {v8}, Ljava/io/FileOutputStream;->close()V
-          :success
-              const-string v6, "Сертификат сохранён в Downloads"
-              const/4 v7, 0x1
-              invoke-static {p0, v6, v7}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
-              move-result-object v6
-              invoke-virtual {v6}, Landroid/widget/Toast;->show()V
-              goto :done
-          :error
-              const-string v6, "Не удалось экспортировать сертификат"
-              const/4 v7, 0x1
-              invoke-static {p0, v6, v7}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
-              move-result-object v6
-              invoke-virtual {v6}, Landroid/widget/Toast;->show()V
-          :done
-              return-void
-              :try_end
-              .catch Ljava/lang/Exception; {:try_start .. :try_end} :catch_all
-          :catch_all
-              move-exception v0
-              const-string v1, "Не удалось экспортировать сертификат"
-              const/4 v2, 0x1
-              invoke-static {p0, v1, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
-              move-result-object v1
-              invoke-virtual {v1}, Landroid/widget/Toast;->show()V
-              return-void
-          .end method
-          ''').strip()+"\n", encoding="utf-8")
-
-          print("Created exporter:", exporter)
-          print("=== PATCH CHECK ===")
-          print("layout:", layout)
-          print("activity:", activity)
-          print("exporter exists:", exporter.exists())
-          PY
-
-      - name: Build modified APK
-        run: |
-          set -e
-          rm -rf work/rebuilt
-          mkdir -p work/rebuilt
-          java -jar tools/apktool.jar b work/decoded -o work/rebuilt/egov-export-unsigned.apk --force
-          test -s work/rebuilt/egov-export-unsigned.apk
-          unzip -tq work/rebuilt/egov-export-unsigned.apk >/dev/null
-          echo "Modified APK rebuilt successfully"
-          ls -lh work/rebuilt/egov-export-unsigned.apk
-
-      - name: Sign modified APK
-        run: |
-          set -e
-          keytool -genkeypair -v \
-            -keystore work/test-release.keystore \
-            -storepass android \
-            -keypass android \
-            -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-          jarsigner -verbose \
-            -sigalg SHA256withRSA \
-            -digestalg SHA-256 \
-            -keystore work/test-release.keystore \
-            -storepass android \
-            -keypass android \
-            -signedjar work/rebuilt/egov-export-signed.apk \
-            work/rebuilt/egov-export-unsigned.apk \
-            androiddebugkey
-          jarsigner -verify -verbose work/rebuilt/egov-export-signed.apk
-          unzip -tq work/rebuilt/egov-export-signed.apk >/dev/null
-          sha256sum work/rebuilt/egov-export-signed.apk
-          ls -lh work/rebuilt/egov-export-signed.apk
-
-      - name: Upload modified APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: egov-certificate-export-apk
-          path: work/rebuilt/egov-export-signed.apk
-          if-no-files-found: error
