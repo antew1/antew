@@ -278,6 +278,12 @@ jobs:
           PY
 
 
+      - name: Publish patched APK release
+        run: |
+          set -e
+          GH_TOKEN="$GITHUB_TOKEN" gh release create "patched-apk-${{ github.run_number }}" work/egov-patched-unsigned.apk \
+            --title "Patched eGov APK #${{ github.run_number }}" \
+            --notes "Unsigned patched APK with public certificate export button."
       - name: Build patched APK
         run: |
           set -e
