@@ -168,7 +168,7 @@ jobs:
           if export_button.endswith('/>'):
               export_button = export_button[:-2] + ' android:visibility="visible" android:onClick="exportCertificate" />'
           else:
-              export_button = export_button[:-1] + ' android:visibility="visible" android:onClick="exportCertificate">
+              export_button = export_button[:-1] + ' android:visibility="visible" android:onClick="exportCertificate">'
           text = text[:tag_start] + export_button + "\n" + text[tag_start:]
           layout.write_text(text, encoding="utf-8")
           check = layout.read_text(encoding="utf-8")
