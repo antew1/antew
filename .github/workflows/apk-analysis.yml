@@ -168,7 +168,7 @@ jobs:
               export_button = re.sub(r'android:visibility="[^"]*"', 'android:visibility="gone"', export_button, count=1)
           else:
               export_button = export_button.replace('>', ' android:visibility="gone">', 1)
-          text = text[:match.start()] + export_button + "\\n" + text[match.start():]
+          text = text[:tag_start] + export_button + "\\n" + text[tag_start:]
           layout.write_text(text, encoding="utf-8")
           check = layout.read_text(encoding="utf-8")
           if 'android:id="@+id/export_certificate"' not in check:
