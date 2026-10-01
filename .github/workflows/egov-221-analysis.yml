@@ -22,7 +22,7 @@ jobs:
           python3 -m pip install --user --break-system-packages gdown
           export PATH="$HOME/.local/bin:$PATH"
           drive_link="https://drive.google.com/file/d/1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc/view?usp=drivesdk"
-          gdown --fuzzy "$drive_link" -O /tmp/egov-2.2.1.apkm
+          gdown "https://drive.google.com/uc?id=1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc" -O /tmp/egov-2.2.1.apkm
           test -s /tmp/egov-2.2.1.apkm
           file /tmp/egov-2.2.1.apkm
           unzip -t /tmp/egov-2.2.1.apkm
