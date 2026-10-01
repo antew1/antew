@@ -84,13 +84,9 @@ jobs:
           set -euo pipefail
           sudo apt-get install -y jq
           release_json="$(curl -fsSL https://api.github.com/repos/skylot/jadx/releases/latest)"
-          asset_api_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | test("^jadx-[0-9].*\\.zip$"))][0].url // empty')"
-          test -n "$asset_api_url"
-          # Download via the release-assets API rather than the browser URL,
-          # which returned HTTP 403 in run #48.
-          curl -fL --retry 3 --retry-all-errors -H "Accept: application/octet-stream" "$asset_api_url" -o /tmp/jadx.zip
-          file /tmp/jadx.zip
-          unzip -t /tmp/jadx.zip
+          asset_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | startswith("jadx-") and endswith(".zip"))][0].browser_download_url // empty')"
+          test -n "$asset_url"
+          curl -fL "$asset_url" -o /tmp/jadx.zip
           sudo mkdir -p /opt/jadx
           sudo unzip -q /tmp/jadx.zip -d /opt/jadx
           test -x /opt/jadx/bin/jadx
@@ -112,34 +108,6 @@ jobs:
           test -s /tmp/egov-decoded/apktool.yml
           find /tmp/egov-decoded -maxdepth 1 -type d -name 'smali*' -print -quit | grep -q .
           echo "APKTOOL_DECODE_OK"
-      - name: Inspect certificate smali and validate Apktool rebuild
-        run: |
-          set -euo pipefail
-          echo "=== certificate fragment smali ==="
-          find /tmp/egov-decoded/smali* -path '*CertificateInfoFragment.smali' -print
-          for f in $(find /tmp/egov-decoded/smali* -path '*CertificateInfoFragment.smali' -print); do
-            echo "FILE=$f"
-            sed -n '1,300p' "$f"
-          done
-          echo "=== certificate model smali ==="
-          for f in $(find /tmp/egov-decoded/smali* -path '*/kz/mobile/mgov/core/model/Certificate.smali' -print); do
-            echo "FILE=$f"
-            grep -n -B 8 -A 22 -E 'getPem|setPem|\.field.*pem' "$f" || true
-          done
-          echo "=== layout and ids ==="
-          grep -RIn -E 'fragment_certificate_info|certificate_title|revoke' /tmp/egov-decoded/res/values/public.xml /tmp/egov-decoded/res/values/ids.xml 2>/dev/null || true
-          echo "=== original APK smali rebuild smoke test (resources excluded) ==="
-          # This smoke test invokes Apktool's resource builder as well as smali.
-          # On this APK, Apktool 2.7.0's bundled aapt fails on decoded resources;
-          # keep that diagnostic non-blocking so JADX/source inspection still runs.
-          if apktool b /tmp/egov-decoded -o /tmp/egov-rebuilt-smoke.apk; then
-            test -s /tmp/egov-rebuilt-smoke.apk
-            unzip -t /tmp/egov-rebuilt-smoke.apk
-            echo "APKTOOL_REBUILD_SMOKE_OK"
-          else
-            echo "::warning::Apktool rebuild smoke test failed; source inspection will continue."
-            echo "APKTOOL_REBUILD_SMOKE_FAILED_NONBLOCKING"
-          fi
       - name: Decompile base APK with JADX and locate certificate UI
         run: |
           set -euo pipefail
@@ -182,33 +150,3 @@ jobs:
           grep -RInE 'certificate_info|certificate.*(export|save)|export.*certificate|Сертификат|сертификат' /tmp/egov-decoded/res/values /tmp/egov-decoded/res/layout 2>/dev/null | head -n 160 || true
           echo "CERTIFICATE_SOURCE_EXCERPTS_OK"
           echo "CERTIFICATE_SOURCE_INVENTORY_OK"
-      - name: Package certificate implementation evidence
-        if: always()
-        run: |
-          set -euo pipefail
-          out="/tmp/certificate-analysis"
-          mkdir -p "$out"
-          for root in /tmp/egov-decoded/smali*; do
-            [ -d "$root" ] || continue
-            find "$root" -path '*CertificateInfoFragment.smali' -exec cp --parents {} "$out" \;
-            find "$root" -path '*/kz/mobile/mgov/core/model/Certificate.smali' -exec cp --parents {} "$out" \;
-          done
-          for f in \
-            /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.java \
-            /tmp/egov-jadx/sources/kz/mobile/mgov/core/model/Certificate.java \
-            /tmp/egov-jadx/sources/kz/mobile/mgov/core/security/CertificateUtils.java \
-            /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/EdsActivity.java \
-            /tmp/egov-decoded/res/layout/fragment_certificate_info.xml \
-            /tmp/egov-decoded/AndroidManifest.xml; do
-            if [ -s "$f" ]; then cp --parents "$f" "$out"; fi
-          done
-          find "$out" -type f -print | sort
-          test -n "$(find "$out" -type f -print -quit)"
-      - name: Upload certificate implementation evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: certificate-analysis-materials
-          path: /tmp/certificate-analysis/
-          if-no-files-found: error
-          retention-days: 14
