@@ -120,4 +120,15 @@ jobs:
           echo "JADX_SOURCE_FILE_COUNT=$(find /tmp/egov-jadx/sources -type f -name '*.java' | wc -l)"
           find /tmp/egov-jadx/sources -type f \( -iname '*Certificate*' -o -iname '*EdsActivity*' \) -print | sort | head -n 100
           grep -RIlE 'CertificateInfoFragment|CertificateUtils|EdsActivity|certificate' /tmp/egov-jadx/sources | sort | head -n 100 || true
+          echo "=== CertificateInfoFragment.java ==="
+          sed -n '1,260p' /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.java
+          echo "=== Certificate.java ==="
+          sed -n '1,240p' /tmp/egov-jadx/sources/kz/mobile/mgov/core/model/Certificate.java
+          echo "=== CertificateUtils.java ==="
+          sed -n '1,240p' /tmp/egov-jadx/sources/kz/mobile/mgov/core/security/CertificateUtils.java
+          echo "=== EdsActivity.java ==="
+          sed -n '1,220p' /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/EdsActivity.java
+          echo "=== certificate resource references ==="
+          grep -RInE 'certificate_info|certificate.*(export|save)|export.*certificate|Сертификат|сертификат' /tmp/egov-decoded/res/values /tmp/egov-decoded/res/layout 2>/dev/null | head -n 160 || true
+          echo "CERTIFICATE_SOURCE_EXCERPTS_OK"
           echo "CERTIFICATE_SOURCE_INVENTORY_OK"
