@@ -2,6 +2,15 @@ name: eGov 2.2.1 APKM Analysis
 
 on:
   workflow_dispatch:
+    inputs:
+      apk_url:
+        description: "Google Drive link or direct URL to the APKM file (optional)"
+        required: false
+        type: string
+      apk_sha256:
+        description: "Optional SHA-256 checksum of the APKM"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -28,10 +37,30 @@ jobs:
           tools/jadx/bin/jadx --version
 
       - name: Download APKM
+        env:
+          APK_URL: ${{ inputs.apk_url }}
+          APK_SHA256: ${{ inputs.apk_sha256 }}
         run: |
           set -e
-          gdown "1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc" -O work/egov-2.2.1.apkm
+          DEFAULT_DRIVE_ID="1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc"
+          if [ -n "$APK_URL" ]; then
+            echo "Using APKM URL supplied at workflow dispatch"
+            case "$APK_URL" in
+              https://drive.google.com/*)
+                gdown "$APK_URL" -O work/egov-2.2.1.apkm
+                ;;
+              *)
+                curl -fL --retry 2 --retry-all-errors "$APK_URL" -o work/egov-2.2.1.apkm
+                ;;
+            esac
+          else
+            echo "Using configured Google Drive APKM"
+            gdown "$DEFAULT_DRIVE_ID" -O work/egov-2.2.1.apkm
+          fi
           test -s work/egov-2.2.1.apkm
+          if [ -n "$APK_SHA256" ]; then
+            echo "$APK_SHA256  work/egov-2.2.1.apkm" | sha256sum -c -
+          fi
           file work/egov-2.2.1.apkm
           unzip -tq work/egov-2.2.1.apkm
           unzip -q work/egov-2.2.1.apkm -d work/apkm
