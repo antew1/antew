@@ -140,6 +140,10 @@ jobs:
           sed -n '1795,1835p' /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/EdsViewModel.java
           echo "=== Certificate object creation and navigation ==="
           grep -RInE 'new Certificate\(|CERTIFICATE\)|CERTIFICATE,' /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds 2>/dev/null | head -n 100 || true
+          echo "=== Certificate creation and screen navigation ==="
+          grep -RInE "getCertificateDatasFromX509|CertificateInfoFragment|CERTIFICATE\)" /tmp/egov-jadx/sources/kz/mobile/mgov/core /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds 2>/dev/null | head -n 220 || true
+          echo "=== CertificateUtils X509 constructors ==="
+          sed -n '210,350p' /tmp/egov-jadx/sources/kz/mobile/mgov/core/security/CertificateUtils.java
           echo "=== certificate info layout ==="
           sed -n '1,260p' /tmp/egov-decoded/res/layout/fragment_certificate_info.xml
           echo "=== certificate resource references ==="
