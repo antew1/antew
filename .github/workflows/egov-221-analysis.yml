@@ -108,31 +108,6 @@ jobs:
           test -s /tmp/egov-decoded/apktool.yml
           find /tmp/egov-decoded -maxdepth 1 -type d -name 'smali*' -print -quit | grep -q .
           echo "APKTOOL_DECODE_OK"
-      - name: Collect certificate Smali and layout
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/egov-certificate-artifact
-          fragment="$(find /tmp/egov-decoded -type f -path '*/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.smali' -print -quit)"
-          test -n "$fragment"
-          cp "$fragment" /tmp/egov-certificate-artifact/CertificateInfoFragment.smali
-          model="$(find /tmp/egov-decoded -type f -path '*/kz/mobile/mgov/core/model/Certificate.smali' -print -quit)"
-          test -n "$model"
-          cp "$model" /tmp/egov-certificate-artifact/Certificate.smali
-          utils="$(find /tmp/egov-decoded -type f -path '*/kz/mobile/mgov/core/security/CertificateUtils.smali' -print -quit)"
-          test -n "$utils"
-          cp "$utils" /tmp/egov-certificate-artifact/CertificateUtils.smali
-          layout="/tmp/egov-decoded/res/layout/fragment_certificate_info.xml"
-          test -s "$layout"
-          cp "$layout" /tmp/egov-certificate-artifact/fragment_certificate_info.xml
-          echo "CERTIFICATE_SMALI_FILES_COLLECTED"
-          ls -l /tmp/egov-certificate-artifact
-      - name: Upload certificate Smali artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: egov-certificate-smali
-          path: /tmp/egov-certificate-artifact/
-          if-no-files-found: error
-          retention-days: 7
       - name: Decompile base APK with JADX and locate certificate UI
         run: |
           set -euo pipefail
