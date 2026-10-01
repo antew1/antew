@@ -182,3 +182,33 @@ jobs:
           grep -RInE 'certificate_info|certificate.*(export|save)|export.*certificate|Сертификат|сертификат' /tmp/egov-decoded/res/values /tmp/egov-decoded/res/layout 2>/dev/null | head -n 160 || true
           echo "CERTIFICATE_SOURCE_EXCERPTS_OK"
           echo "CERTIFICATE_SOURCE_INVENTORY_OK"
+      - name: Package certificate implementation evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          out="/tmp/certificate-analysis"
+          mkdir -p "$out"
+          for root in /tmp/egov-decoded/smali*; do
+            [ -d "$root" ] || continue
+            find "$root" -path '*CertificateInfoFragment.smali' -exec cp --parents {} "$out" \\;
+            find "$root" -path '*/kz/mobile/mgov/core/model/Certificate.smali' -exec cp --parents {} "$out" \\;
+          done
+          for f in \
+            /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.java \
+            /tmp/egov-jadx/sources/kz/mobile/mgov/core/model/Certificate.java \
+            /tmp/egov-jadx/sources/kz/mobile/mgov/core/security/CertificateUtils.java \
+            /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/EdsActivity.java \
+            /tmp/egov-decoded/res/layout/fragment_certificate_info.xml \
+            /tmp/egov-decoded/AndroidManifest.xml; do
+            if [ -s "$f" ]; then cp --parents "$f" "$out"; fi
+          done
+          find "$out" -type f -print | sort
+          test -n "$(find "$out" -type f -print -quit)"
+      - name: Upload certificate implementation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: certificate-analysis-materials
+          path: /tmp/certificate-analysis/
+          if-no-files-found: error
+          retention-days: 14
