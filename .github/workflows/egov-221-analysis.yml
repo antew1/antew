@@ -129,12 +129,17 @@ jobs:
           echo "=== layout and ids ==="
           grep -RIn -E 'fragment_certificate_info|certificate_title|revoke' /tmp/egov-decoded/res/values/public.xml /tmp/egov-decoded/res/values/ids.xml 2>/dev/null || true
           echo "=== original APK smali rebuild smoke test (resources excluded) ==="
-          # Apktool 2.7's bundled aapt fails on this APK's decoded resource tree;
-          # build smali separately to validate DEX assembly without reprocessing resources.
-          apktool b --no-res /tmp/egov-decoded -o /tmp/egov-rebuilt-smali-smoke.apk
-          test -s /tmp/egov-rebuilt-smali-smoke.apk
-          unzip -t /tmp/egov-rebuilt-smali-smoke.apk
-          echo "APKTOOL_SMALI_REBUILD_SMOKE_OK"
+          # This smoke test invokes Apktool's resource builder as well as smali.
+          # On this APK, Apktool 2.7.0's bundled aapt fails on decoded resources;
+          # keep that diagnostic non-blocking so JADX/source inspection still runs.
+          if apktool b /tmp/egov-decoded -o /tmp/egov-rebuilt-smoke.apk; then
+            test -s /tmp/egov-rebuilt-smoke.apk
+            unzip -t /tmp/egov-rebuilt-smoke.apk
+            echo "APKTOOL_REBUILD_SMOKE_OK"
+          else
+            echo "::warning::Apktool rebuild smoke test failed; source inspection will continue."
+            echo "APKTOOL_REBUILD_SMOKE_FAILED_NONBLOCKING"
+          fi
       - name: Decompile base APK with JADX and locate certificate UI
         run: |
           set -euo pipefail
