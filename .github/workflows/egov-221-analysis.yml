@@ -108,3 +108,12 @@ jobs:
           test -s /tmp/egov-decoded/apktool.yml
           find /tmp/egov-decoded -maxdepth 1 -type d -name 'smali*' -print -quit | grep -q .
           echo "APKTOOL_DECODE_OK"
+      - name: Decompile base APK with JADX and locate certificate UI
+        run: |
+          set -euo pipefail
+          /opt/jadx/bin/jadx -d /tmp/egov-jadx /tmp/egov-base.apk
+          test -d /tmp/egov-jadx/sources
+          echo "JADX_DECOMPILE_OK"
+          find /tmp/egov-jadx/sources -type f \( -iname '*Certificate*' -o -iname '*EdsActivity*' \) -print | sort | head -n 100
+          grep -RIlE 'CertificateInfoFragment|CertificateUtils|EdsActivity|certificate' /tmp/egov-jadx/sources | sort | head -n 100
+          echo "CERTIFICATE_SOURCE_INVENTORY_OK"
