@@ -18,18 +18,37 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y curl unzip file
-          url="https://drive.google.com/uc?export=download&id=1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc"
-          curl -fL --retry 3 --retry-delay 2 "$url" -o /tmp/egov-2.2.1.apkm
+          sudo apt-get install -y curl unzip file python3
+          file_id="1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc"
+          url="https://drive.google.com/uc?export=download&id=${file_id}"
+          curl -fLsS -c /tmp/drive-cookies.txt -b /tmp/drive-cookies.txt --retry 3 --retry-delay 2 "$url" -o /tmp/egov-2.2.1.apkm
+          if ! unzip -tq /tmp/egov-2.2.1.apkm >/dev/null 2>&1; then
+            confirm="$(python3 - <<'PY'
+          import html, re
+          from pathlib import Path
+          page = Path("/tmp/egov-2.2.1.apkm").read_text(errors="ignore")
+          patterns = [
+              r'name=["\\']confirm["\\']\\s+value=["\\']([^"\\']+)',
+              r'[?&]confirm=([0-9A-Za-z_-]+)',
+          ]
+          for pattern in patterns:
+              match = re.search(pattern, page)
+              if match:
+                  print(html.unescape(match.group(1)))
+                  break
+          PY
+          )"
+            if [ -z "$confirm" ]; then
+              echo "Google Drive did not provide a download confirmation token."
+              head -c 500 /tmp/egov-2.2.1.apkm || true
+              exit 1
+            fi
+            curl -fLsS -c /tmp/drive-cookies.txt -b /tmp/drive-cookies.txt --retry 3 --retry-delay 2 "https://drive.google.com/uc?export=download&confirm=${confirm}&id=${file_id}" -o /tmp/egov-2.2.1.apkm
+          fi
           test -s /tmp/egov-2.2.1.apkm
           file /tmp/egov-2.2.1.apkm
-          if ! unzip -tq /tmp/egov-2.2.1.apkm >/dev/null 2>&1; then
-            echo "Downloaded response is not a valid APKM archive."
-            head -c 500 /tmp/egov-2.2.1.apkm || true
-            exit 1
-          fi
           unzip -t /tmp/egov-2.2.1.apkm
-          unzip -Z1 /tmp/egov-2.2.1.apkm | grep -E '(^|/)base\.apk$'
+          unzip -Z1 /tmp/egov-2.2.1.apkm | grep -E '(^|/)base\\.apk$'
           echo "APKM_DOWNLOAD_VALIDATION_OK"
       - name: Confirm runner and install Apktool
         run: |
@@ -43,7 +62,7 @@ jobs:
           set -euo pipefail
           sudo apt-get install -y jq
           release_json="$(curl -fsSL https://api.github.com/repos/skylot/jadx/releases/latest)"
-          asset_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | test("^jadx-[0-9.]+\\.zip$"))][0].browser_download_url // empty')"
+          asset_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | test("^jadx-[0-9.]+\\\\.zip$"))][0].browser_download_url // empty')"
           test -n "$asset_url"
           curl -fL "$asset_url" -o /tmp/jadx.zip
           sudo mkdir -p /opt/jadx
