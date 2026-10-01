@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Download and validate eGov 2.2.1 APKM
         env:
-          APKM_URL: ${{ inputs.apkm_url }}
+          APKM_URL: ${{ inputs.apkm_url || 'https://drive.google.com/file/d/1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc/view?usp=drivesdk' }}
         run: |
           set -euo pipefail
           sudo apt-get update
