@@ -5,6 +5,11 @@ on:
     paths:
       - ".github/workflows/egov-221-analysis.yml"
   workflow_dispatch:
+    inputs:
+      apkm_url:
+        description: "HTTPS link to the eGov 2.2.1 APKM (Google Drive share link or direct file URL)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -21,8 +26,39 @@ jobs:
           sudo apt-get install -y curl unzip file python3
           python3 -m pip install --user --break-system-packages gdown
           export PATH="$HOME/.local/bin:$PATH"
-          drive_link="https://drive.google.com/file/d/1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc/view?usp=drivesdk"
-          gdown "https://drive.google.com/uc?id=1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc" -O /tmp/egov-2.2.1.apkm
+          input_url="${{ github.event.inputs.apkm_url }}"
+          if [ -z "$input_url" ]; then
+            input_url="https://drive.google.com/file/d/1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc/view?usp=drivesdk"
+          fi
+          python3 - "$input_url" >> "$GITHUB_OUTPUT" <<'PY'
+          import sys
+          from urllib.parse import urlparse, parse_qs
+          u=urlparse(sys.argv[1])
+          if u.scheme != "https" or not u.hostname:
+              raise SystemExit("APKM URL must use HTTPS")
+          host=u.hostname.lower()
+          file_id=""
+          if host in ("drive.google.com", "www.drive.google.com"):
+              parts=[p for p in u.path.split("/") if p]
+              if len(parts)>=3 and parts[0]=="file" and parts[1]=="d":
+                  file_id=parts[2]
+              else:
+                  file_id=parse_qs(u.query).get("id", [""])[0]
+              if not file_id or not file_id.replace("-", "").replace("_", "").isalnum():
+                  raise SystemExit("Could not extract a valid Google Drive file ID")
+              print("source=drive")
+              print("file_id="+file_id)
+          else:
+              print("source=direct")
+              print("url="+sys.argv[1])
+          PY
+          source="$(sed -n 's/^source=//p' "$GITHUB_OUTPUT" | tail -n1)"
+          if [ "$source" = "drive" ]; then
+            file_id="$(sed -n 's/^file_id=//p' "$GITHUB_OUTPUT" | tail -n1)"
+            gdown "https://drive.google.com/uc?id=$file_id" -O /tmp/egov-2.2.1.apkm
+          else
+            curl -fL "$input_url" -o /tmp/egov-2.2.1.apkm
+          fi
           test -s /tmp/egov-2.2.1.apkm
           file /tmp/egov-2.2.1.apkm
           unzip -t /tmp/egov-2.2.1.apkm
