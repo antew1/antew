@@ -132,8 +132,14 @@ jobs:
           grep -RIn -B 14 -A 18 "certificate.setPem\|certificate2.setPem\|setPem(x509" /tmp/egov-jadx/sources/kz/mobile/mgov/core 2>/dev/null | head -n 220 || true
           echo "=== CertificateInfoFragment launch and argument contexts ==="
           grep -RIn -B 8 -A 12 "CertificateInfoFragment\|IntentConstants.CERTIFICATE" /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds 2>/dev/null | head -n 260 || true
-          echo "=== PEM call sites ==="
-          grep -RInE "setPem|getPem|\.pem|pem =" /tmp/egov-jadx/sources/kz/mobile/mgov 2>/dev/null | head -n 160 || true
+          echo "=== CertificateUtils PEM population ==="
+          sed -n '210,255p' /tmp/egov-jadx/sources/kz/mobile/mgov/core/security/CertificateUtils.java
+          sed -n '305,345p' /tmp/egov-jadx/sources/kz/mobile/mgov/core/security/CertificateUtils.java
+          echo "=== EdsViewModel certificate flows ==="
+          sed -n '1630,1675p' /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/EdsViewModel.java
+          sed -n '1795,1835p' /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/EdsViewModel.java
+          echo "=== Certificate object creation and navigation ==="
+          grep -RInE 'new Certificate\(|CERTIFICATE\)|CERTIFICATE,' /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds 2>/dev/null | head -n 100 || true
           echo "=== certificate info layout ==="
           sed -n '1,260p' /tmp/egov-decoded/res/layout/fragment_certificate_info.xml
           echo "=== certificate resource references ==="
