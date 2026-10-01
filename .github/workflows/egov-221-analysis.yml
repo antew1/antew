@@ -92,3 +92,22 @@ jobs:
           test -x /opt/jadx/bin/jadx
           /opt/jadx/bin/jadx --version
           echo "TOOLING_DIAGNOSTIC_OK"
+      - name: Extract and analyze base APK
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/egov-analysis
+          unzip -p /tmp/egov-2.2.1.apkm base.apk > /tmp/egov-analysis/base.apk
+          test -s /tmp/egov-analysis/base.apk
+          apktool d -f /tmp/egov-analysis/base.apk -o /tmp/egov-analysis/apktool
+          /opt/jadx/bin/jadx --no-res -d /tmp/egov-analysis/jadx /tmp/egov-analysis/base.apk
+          find /tmp/egov-analysis/jadx -type f -name '*.java' | wc -l
+          tar -czf /tmp/egov-2.2.1-analysis.tar.gz -C /tmp/egov-analysis apktool jadx
+          test -s /tmp/egov-2.2.1-analysis.tar.gz
+          echo "APK_ANALYSIS_ARCHIVE_READY"
+      - name: Upload APK analysis artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: egov-2.2.1-apk-analysis
+          path: /tmp/egov-2.2.1-analysis.tar.gz
+          if-no-files-found: error
+          retention-days: 7
