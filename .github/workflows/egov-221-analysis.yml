@@ -28,7 +28,7 @@ jobs:
           from pathlib import Path
           page = Path("/tmp/egov-2.2.1.apkm").read_text(errors="ignore")
           patterns = [
-              r'name=["\\']confirm["\\']\\s+value=["\\']([^"\\']+)',
+              r"name=['\"]confirm['\"]\s+value=['\"]([^'\"]+)",
               r'[?&]confirm=([0-9A-Za-z_-]+)',
           ]
           for pattern in patterns:
