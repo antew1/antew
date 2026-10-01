@@ -1,4 +1,4 @@
-name: eGov 2.2.1 Runner Diagnostic
+name: eGov 2.2.1 Tooling Diagnostic
 
 on:
   push:
@@ -10,20 +10,28 @@ permissions:
   contents: read
 
 jobs:
-  runner-diagnostic:
+  tooling-diagnostic:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Confirm runner startup
+      - name: Confirm runner and install Apktool
         run: |
-          set -e
+          set -euo pipefail
           echo "RUNNER_STARTED"
-          echo "OS:"
-          uname -a
-          echo "Java:"
           java -version
-          echo "Python:"
-          python3 --version
-          echo "Git:"
-          git --version
-          echo "DIAGNOSTIC_OK"
+          sudo apt-get update
+          sudo apt-get install -y apktool
+          apktool --version
+      - name: Install and verify JADX
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y curl jq unzip
+          release_json="$(curl -fsSL https://api.github.com/repos/skylot/jadx/releases/latest)"
+          asset_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | test("^jadx-[0-9.]+\\.zip$"))][0].browser_download_url // empty')"
+          test -n "$asset_url"
+          curl -fL "$asset_url" -o /tmp/jadx.zip
+          sudo mkdir -p /opt/jadx
+          sudo unzip -q /tmp/jadx.zip -d /opt/jadx
+          test -x /opt/jadx/bin/jadx
+          /opt/jadx/bin/jadx --version
+          echo "TOOLING_DIAGNOSTIC_OK"
