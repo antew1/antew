@@ -190,8 +190,8 @@ jobs:
           mkdir -p "$out"
           for root in /tmp/egov-decoded/smali*; do
             [ -d "$root" ] || continue
-            find "$root" -path '*CertificateInfoFragment.smali' -exec cp --parents {} "$out" \\;
-            find "$root" -path '*/kz/mobile/mgov/core/model/Certificate.smali' -exec cp --parents {} "$out" \\;
+            find "$root" -path '*CertificateInfoFragment.smali' -exec cp --parents {} "$out" \;
+            find "$root" -path '*/kz/mobile/mgov/core/model/Certificate.smali' -exec cp --parents {} "$out" \;
           done
           for f in \
             /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.java \
