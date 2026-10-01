@@ -1,0 +1,86 @@
+name: eGov 2.2.1 APKM Analysis
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Runner test
+        run: |
+          echo "eGov 2.2.1 analysis started"
+          java -version 2>&1 || true
+
+      - name: Prepare tools
+        run: |
+          set -e
+          python3 -m pip install --quiet --break-system-packages gdown
+          mkdir -p tools work/apkm work/decoded work/jadx
+          curl -fL --retry 2 --retry-all-errors https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar -o tools/apktool.jar
+          curl -fL --retry 2 --retry-all-errors https://github.com/skylot/jadx/releases/download/v1.5.3/jadx-1.5.3.zip -o tools/jadx.zip
+          unzip -q tools/jadx.zip -d tools/jadx
+          chmod +x tools/jadx/bin/jadx
+          java -jar tools/apktool.jar --version
+          tools/jadx/bin/jadx --version
+
+      - name: Download APKM
+        run: |
+          set -e
+          gdown "1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc" -O work/egov-2.2.1.apkm
+          test -s work/egov-2.2.1.apkm
+          file work/egov-2.2.1.apkm
+          unzip -tq work/egov-2.2.1.apkm
+          unzip -q work/egov-2.2.1.apkm -d work/apkm
+          test -s work/apkm/base.apk
+          unzip -tq work/apkm/base.apk
+          sha256sum work/egov-2.2.1.apkm work/apkm/base.apk
+
+      - name: Inspect APKM contents
+        run: |
+          set -e
+          echo "=== APKM metadata ==="
+          cat work/apkm/info.json
+          echo
+          echo "=== APK components ==="
+          find work/apkm -maxdepth 1 -type f -name '*.apk' -printf '%f %s bytes\\n' | sort
+          echo "=== Base APK entries ==="
+          unzip -l work/apkm/base.apk | grep -E 'AndroidManifest.xml|classes[0-9]*.dex|resources.arsc' | head -n 100 || true
+
+      - name: Decode base APK
+        run: |
+          set -e
+          java -jar tools/apktool.jar d work/apkm/base.apk -o work/decoded --force
+          test -f work/decoded/AndroidManifest.xml
+          echo "=== Manifest package and split attributes ==="
+          sed -n '1,180p' work/decoded/AndroidManifest.xml
+          echo "=== DEX directories ==="
+          find work/decoded -maxdepth 1 -type d -name 'smali*' -printf '%f\\n' | sort
+
+      - name: Analyze base DEX
+        run: |
+          set -e
+          set +e
+          tools/jadx/bin/jadx --no-res --no-imports --show-bad-code -d work/jadx work/apkm/base.apk
+          JADX_EXIT=$?
+          set -e
+          echo "JADX exit code: $JADX_EXIT"
+          echo "=== EDS / certificate symbols ==="
+          grep -RniE 'EdsActivity|CertificateInfoFragment|FileRepositoryImpl|CertificateUtils|KeyStore|Certificate' work/jadx 2>/dev/null | head -n 500 || true
+          echo "=== Candidate UI layouts ==="
+          find work/decoded/res -type f -name '*certificate*' -o -name '*eds*' | sort | head -n 250
+
+      - name: Upload analysis artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: egov-2.2.1-apkm-analysis
+          path: |
+            work/apkm/info.json
+            work/decoded/AndroidManifest.xml
+            work/decoded/res/
+            work/decoded/smali_classes*/
+          if-no-files-found: warn
+          retention-days: 7
