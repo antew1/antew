@@ -100,3 +100,11 @@ jobs:
           file /tmp/egov-base.apk
           unzip -t /tmp/egov-base.apk
           echo "BASE_APK_EXTRACTION_OK"
+      - name: Decode base APK with Apktool
+        run: |
+          set -euo pipefail
+          apktool d /tmp/egov-base.apk -o /tmp/egov-decoded
+          test -s /tmp/egov-decoded/AndroidManifest.xml
+          test -s /tmp/egov-decoded/apktool.yml
+          find /tmp/egov-decoded -maxdepth 1 -type d -name 'smali*' -print -quit | grep -q .
+          echo "APKTOOL_DECODE_OK"
