@@ -92,3 +92,11 @@ jobs:
           test -x /opt/jadx/bin/jadx
           /opt/jadx/bin/jadx --version
           echo "TOOLING_DIAGNOSTIC_OK"
+      - name: Extract and verify base APK
+        run: |
+          set -euo pipefail
+          unzip -p /tmp/egov-2.2.1.apkm base.apk > /tmp/egov-base.apk
+          test -s /tmp/egov-base.apk
+          file /tmp/egov-base.apk
+          unzip -t /tmp/egov-base.apk
+          echo "BASE_APK_EXTRACTION_OK"
