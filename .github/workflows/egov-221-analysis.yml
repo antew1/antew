@@ -56,3 +56,31 @@ jobs:
           test -x /opt/jadx/bin/jadx
           /opt/jadx/bin/jadx --version
           echo "TOOLING_DIAGNOSTIC_OK"
+      - name: Extract and decompile eGov 2.2.1
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/egov-apkm /tmp/egov-apktool /tmp/egov-jadx
+          unzip -p /tmp/egov-2.2.1.apkm base.apk > /tmp/egov-base.apk
+          test -s /tmp/egov-base.apk
+          apktool d -f /tmp/egov-base.apk -o /tmp/egov-apktool
+          /opt/jadx/bin/jadx --threads-count 2 -d /tmp/egov-jadx /tmp/egov-base.apk
+          {
+            echo "## eGov 2.2.1 analysis"
+            echo
+            echo "### Certificate and UI class matches"
+            grep -RIlE 'CertificateInfoFragment|CertificateUtils|class Certificate|EdsActivity|getPem|Экспортировать сертификат' /tmp/egov-jadx/sources /tmp/egov-apktool 2>/dev/null | head -100 || true
+            echo
+            echo "### Manifest package"
+            grep -m1 -oE 'package="[^"]+"' /tmp/egov-apktool/AndroidManifest.xml || true
+          } | tee /tmp/egov-analysis-report.md
+          echo "EGOV_DECOMPILE_OK"
+      - name: Upload eGov analysis results
+        uses: actions/upload-artifact@v4
+        with:
+          name: egov-2.2.1-analysis
+          path: |
+            /tmp/egov-analysis-report.md
+            /tmp/egov-apktool
+            /tmp/egov-jadx/sources
+          if-no-files-found: error
+          compression-level: 6
