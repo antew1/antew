@@ -19,9 +19,15 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y curl unzip file
-          curl -fL --retry 3 --retry-delay 2 "https://drive.usercontent.google.com/download?id=1RR5zm2kssTsiHObxssxxVFUjw7ZKiUc&export=download&confirm=t" -o /tmp/egov-2.2.1.apkm
+          url="https://drive.google.com/uc?export=download&id=1RR5zm2kssTsiHObxssxxVFUjw7ZKiUc"
+          curl -fL --retry 3 --retry-delay 2 "$url" -o /tmp/egov-2.2.1.apkm
           test -s /tmp/egov-2.2.1.apkm
           file /tmp/egov-2.2.1.apkm
+          if ! unzip -tq /tmp/egov-2.2.1.apkm >/dev/null 2>&1; then
+            echo "Downloaded response is not a valid APKM archive."
+            head -c 500 /tmp/egov-2.2.1.apkm || true
+            exit 1
+          fi
           unzip -t /tmp/egov-2.2.1.apkm
           unzip -Z1 /tmp/egov-2.2.1.apkm | grep -E '(^|/)base\.apk$'
           echo "APKM_DOWNLOAD_VALIDATION_OK"
