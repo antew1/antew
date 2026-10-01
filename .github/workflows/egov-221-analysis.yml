@@ -111,9 +111,13 @@ jobs:
       - name: Decompile base APK with JADX and locate certificate UI
         run: |
           set -euo pipefail
+          set +e
           /opt/jadx/bin/jadx -d /tmp/egov-jadx /tmp/egov-base.apk
+          jadx_status=$?
+          set -e
           test -d /tmp/egov-jadx/sources
-          echo "JADX_DECOMPILE_OK"
+          echo "JADX_EXIT_CODE=$jadx_status"
+          echo "JADX_SOURCE_FILE_COUNT=$(find /tmp/egov-jadx/sources -type f -name '*.java' | wc -l)"
           find /tmp/egov-jadx/sources -type f \( -iname '*Certificate*' -o -iname '*EdsActivity*' \) -print | sort | head -n 100
-          grep -RIlE 'CertificateInfoFragment|CertificateUtils|EdsActivity|certificate' /tmp/egov-jadx/sources | sort | head -n 100
+          grep -RIlE 'CertificateInfoFragment|CertificateUtils|EdsActivity|certificate' /tmp/egov-jadx/sources | sort | head -n 100 || true
           echo "CERTIFICATE_SOURCE_INVENTORY_OK"
