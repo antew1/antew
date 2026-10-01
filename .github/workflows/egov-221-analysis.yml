@@ -17,9 +17,11 @@ jobs:
       - name: Download and validate eGov 2.2.1 APKM
         run: |
           set -euo pipefail
-          python -m pip install --break-system-packages gdown
-          gdown "https://drive.google.com/uc?id=1RR5zm2kssTsiHObxssxxVFUjw7ZKiUc" -O /tmp/egov-2.2.1.apkm
+          sudo apt-get update
+          sudo apt-get install -y curl unzip file
+          curl -fL --retry 3 --retry-delay 2 "https://drive.usercontent.google.com/download?id=1RR5zm2kssTsiHObxssxxVFUjw7ZKiUc&export=download&confirm=t" -o /tmp/egov-2.2.1.apkm
           test -s /tmp/egov-2.2.1.apkm
+          file /tmp/egov-2.2.1.apkm
           unzip -t /tmp/egov-2.2.1.apkm
           unzip -Z1 /tmp/egov-2.2.1.apkm | grep -E '(^|/)base\.apk$'
           echo "APKM_DOWNLOAD_VALIDATION_OK"
@@ -28,13 +30,12 @@ jobs:
           set -euo pipefail
           echo "RUNNER_STARTED"
           java -version
-          sudo apt-get update
           sudo apt-get install -y apktool
           apktool --version
       - name: Install and verify JADX
         run: |
           set -euo pipefail
-          sudo apt-get install -y curl jq unzip
+          sudo apt-get install -y jq
           release_json="$(curl -fsSL https://api.github.com/repos/skylot/jadx/releases/latest)"
           asset_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | test("^jadx-[0-9.]+\\.zip$"))][0].browser_download_url // empty')"
           test -n "$asset_url"
