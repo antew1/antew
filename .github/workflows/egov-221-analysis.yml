@@ -108,6 +108,27 @@ jobs:
           test -s /tmp/egov-decoded/apktool.yml
           find /tmp/egov-decoded -maxdepth 1 -type d -name 'smali*' -print -quit | grep -q .
           echo "APKTOOL_DECODE_OK"
+      - name: Inspect certificate smali and validate Apktool rebuild
+        run: |
+          set -euo pipefail
+          echo "=== certificate fragment smali ==="
+          find /tmp/egov-decoded/smali* -path '*CertificateInfoFragment.smali' -print
+          for f in $(find /tmp/egov-decoded/smali* -path '*CertificateInfoFragment.smali' -print); do
+            echo "FILE=$f"
+            sed -n '1,300p' "$f"
+          done
+          echo "=== certificate model smali ==="
+          for f in $(find /tmp/egov-decoded/smali* -path '*/kz/mobile/mgov/core/model/Certificate.smali' -print); do
+            echo "FILE=$f"
+            grep -n -B 8 -A 22 -E 'getPem|setPem|\.field.*pem' "$f" || true
+          done
+          echo "=== layout and ids ==="
+          grep -RIn -E 'fragment_certificate_info|certificate_title|revoke' /tmp/egov-decoded/res/values/public.xml /tmp/egov-decoded/res/values/ids.xml 2>/dev/null || true
+          echo "=== original APK rebuild smoke test ==="
+          apktool b /tmp/egov-decoded -o /tmp/egov-rebuilt-smoke.apk
+          test -s /tmp/egov-rebuilt-smoke.apk
+          unzip -t /tmp/egov-rebuilt-smoke.apk
+          echo "APKTOOL_REBUILD_SMOKE_OK"
       - name: Decompile base APK with JADX and locate certificate UI
         run: |
           set -euo pipefail
