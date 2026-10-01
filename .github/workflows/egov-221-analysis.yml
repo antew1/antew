@@ -12,8 +12,17 @@ permissions:
 jobs:
   tooling-diagnostic:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
+      - name: Download and validate eGov 2.2.1 APKM
+        run: |
+          set -euo pipefail
+          python -m pip install --break-system-packages gdown
+          gdown "https://drive.google.com/uc?id=1RR5zm2kssTsiHObxssxxVFUjw7ZKiUc" -O /tmp/egov-2.2.1.apkm
+          test -s /tmp/egov-2.2.1.apkm
+          unzip -t /tmp/egov-2.2.1.apkm
+          unzip -Z1 /tmp/egov-2.2.1.apkm | grep -E '(^|/)base\.apk$'
+          echo "APKM_DOWNLOAD_VALIDATION_OK"
       - name: Confirm runner and install Apktool
         run: |
           set -euo pipefail
