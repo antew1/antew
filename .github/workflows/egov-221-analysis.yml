@@ -128,6 +128,10 @@ jobs:
           sed -n '1,240p' /tmp/egov-jadx/sources/kz/mobile/mgov/core/security/CertificateUtils.java
           echo "=== EdsActivity.java ==="
           sed -n '1,220p' /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds/presentation/EdsActivity.java
+          echo "=== PEM generation contexts ==="
+          grep -RIn -B 14 -A 18 "certificate.setPem\|certificate2.setPem\|setPem(x509" /tmp/egov-jadx/sources/kz/mobile/mgov/core 2>/dev/null | head -n 220 || true
+          echo "=== CertificateInfoFragment launch and argument contexts ==="
+          grep -RIn -B 8 -A 12 "CertificateInfoFragment\|IntentConstants.CERTIFICATE" /tmp/egov-jadx/sources/kz/mobile/mgov/features/eds 2>/dev/null | head -n 260 || true
           echo "=== PEM call sites ==="
           grep -RInE "setPem|getPem|\.pem|pem =" /tmp/egov-jadx/sources/kz/mobile/mgov 2>/dev/null | head -n 160 || true
           echo "=== certificate info layout ==="
