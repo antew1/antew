@@ -305,30 +305,6 @@ jobs:
           test -s work/egov-patched-debug.apk
           ls -lh work/egov-patched-debug.apk
 
-      - name: Diagnose APK compatibility
-        run: |
-          set -e
-          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          AAPT="$(find "$SDK/build-tools" -type f -name aapt | sort -V | tail -n1)"
-          test -x "$AAPT"
-          echo "=== APK BADGING ==="
-          "$AAPT" dump badging work/egov-patched-debug.apk | grep -E '^(package:|sdkVersion:|targetSdkVersion:|uses-feature:|supports-screens:|native-code:)' || true
-          echo "=== NATIVE LIBRARIES ==="
-          unzip -l work/egov-patched-debug.apk | grep -E 'lib/[^/]+/.*\.so
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -e
-          gh release create "patched-apk-${{ github.run_number }}" work/egov-patched-debug.apk \
-            --repo antew1/antew \
-            --title "Patched eGov APK #${{ github.run_number }}" \
-            --notes "Unsigned patched APK with public certificate export button."
-
- | head -n 100 || true
-          echo "=== APK SIGNATURE ==="
-          APKSIGNER="$(find "$SDK/build-tools" -type f -name apksigner | sort -V | tail -n1)"
-          "$APKSIGNER" verify --verbose work/egov-patched-debug.apk
-
       - name: Publish patched APK release
         env:
           GH_TOKEN: ${{ github.token }}
