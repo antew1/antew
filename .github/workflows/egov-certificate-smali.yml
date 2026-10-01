@@ -1,0 +1,104 @@
+name: eGov Certificate Smali Artifact
+
+on:
+  push:
+    branches:
+      - work/certificate-export-from-44
+    paths:
+      - ".github/workflows/egov-certificate-smali.yml"
+  workflow_dispatch:
+    inputs:
+      apkm_url:
+        description: "HTTPS Google Drive share link or direct APKM URL"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  extract-certificate-smali:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Download and validate APKM
+        env:
+          APKM_URL: ${{ inputs.apkm_url }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y curl unzip file python3
+          python3 -m pip install --user --break-system-packages gdown
+          export PATH="$HOME/.local/bin:$PATH"
+          input_url="$APKM_URL"
+          if [ -z "$input_url" ]; then
+            input_url="https://drive.google.com/file/d/1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc/view?usp=drivesdk"
+          fi
+          python3 - "$input_url" <<'PY'
+          import sys
+          from urllib.parse import urlparse, parse_qs
+          u=urlparse(sys.argv[1])
+          if u.scheme != "https" or not u.hostname:
+              raise SystemExit("APKM URL must use HTTPS")
+          host=u.hostname.lower()
+          if host in ("drive.google.com", "www.drive.google.com"):
+              parts=[p for p in u.path.split("/") if p]
+              file_id=parts[2] if len(parts)>=3 and parts[0]=="file" and parts[1]=="d" else parse_qs(u.query).get("id", [""])[0]
+              if not file_id or not file_id.replace("-", "").replace("_", "").isalnum():
+                  raise SystemExit("Could not extract a valid Google Drive file ID")
+              print("drive:"+file_id)
+          else:
+              print("direct")
+          PY
+          source_info="$(python3 - "$input_url" <<'PY'
+          import sys
+          from urllib.parse import urlparse, parse_qs
+          u=urlparse(sys.argv[1]); host=u.hostname.lower()
+          if host in ("drive.google.com", "www.drive.google.com"):
+              p=[x for x in u.path.split("/") if x]
+              fid=p[2] if len(p)>=3 and p[0]=="file" and p[1]=="d" else parse_qs(u.query).get("id", [""])[0]
+              print("drive:"+fid)
+          else:
+              print("direct")
+          PY
+          )"
+          if [[ "$source_info" == drive:* ]]; then
+            gdown "https://drive.google.com/uc?id=${source_info#drive:}" -O /tmp/egov-2.2.1.apkm
+          else
+            curl -fL "$input_url" -o /tmp/egov-2.2.1.apkm
+          fi
+          test -s /tmp/egov-2.2.1.apkm
+          unzip -t /tmp/egov-2.2.1.apkm
+          unzip -p /tmp/egov-2.2.1.apkm info.json > /tmp/egov-info.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open("/tmp/egov-info.json"))
+          assert p.get("pname") == "kz.mobile.mgov", p.get("pname")
+          assert p.get("release_version") == "2.2.1", p.get("release_version")
+          print("Validated eGov", p["release_version"], p["pname"])
+          PY
+          unzip -p /tmp/egov-2.2.1.apkm base.apk > /tmp/egov-base.apk
+          test -s /tmp/egov-base.apk
+
+      - name: Decode APK and locate exact Smali
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y apktool
+          apktool d /tmp/egov-base.apk -o /tmp/egov-decoded
+          target="$(find /tmp/egov-decoded -type f -path '*/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.smali' -print -quit)"
+          test -n "$target"
+          mkdir -p artifact
+          cp "$target" artifact/CertificateInfoFragment.smali
+          find /tmp/egov-decoded -type f -path '*/kz/mobile/mgov/core/model/Certificate.smali' -exec cp {} artifact/Certificate.smali \;
+          find /tmp/egov-decoded -type f -path '*/kz/mobile/mgov/core/security/CertificateUtils.smali' -exec cp {} artifact/CertificateUtils.smali \;
+          find /tmp/egov-decoded -type f -path '*/res/layout/fragment_certificate_info.xml' -exec cp {} artifact/fragment_certificate_info.xml \;
+          echo "Located: $target"
+          ls -l artifact
+
+      - name: Upload Smali and related source
+        uses: actions/upload-artifact@v4
+        with:
+          name: egov-certificate-smali
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 7
