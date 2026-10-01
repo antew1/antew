@@ -5,12 +5,6 @@ on:
     paths:
       - ".github/workflows/egov-221-analysis.yml"
   workflow_dispatch:
-    inputs:
-      apkm_url:
-        description: "URL APKM (Google Drive share link or direct HTTPS download URL)"
-        required: false
-        default: "https://drive.google.com/file/d/1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc/view?usp=drivesdk"
-        type: string
 
 permissions:
   contents: read
@@ -21,43 +15,14 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Download and validate eGov 2.2.1 APKM
-        env:
-          APKM_URL: ${{ inputs.apkm_url || 'https://drive.google.com/file/d/1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc/view?usp=drivesdk' }}
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y curl unzip file python3
           python3 -m pip install --user --break-system-packages gdown
           export PATH="$HOME/.local/bin:$PATH"
-          apkm_url="${APKM_URL:-}"
-          if [ -z "$apkm_url" ]; then
-            echo "ERROR: APKM URL is empty. Enter it in the workflow input."
-            exit 1
-          fi
-          python3 - "$apkm_url" <<'PY'
-          import sys
-          from urllib.parse import urlparse
-          u = urlparse(sys.argv[1])
-          if u.scheme != "https" or not u.netloc:
-              raise SystemExit("ERROR: APKM URL must be a valid HTTPS URL")
-          PY
-          if [[ "$apkm_url" == *"drive.google.com"* ]]; then
-            drive_id="$(python3 - "$apkm_url" <<'PY'
-          import re, sys
-          from urllib.parse import urlparse, parse_qs
-          u = urlparse(sys.argv[1])
-          candidates = parse_qs(u.query).get("id", [])
-          m = re.search(r"/file/d/([A-Za-z0-9_-]+)", u.path)
-          value = candidates[0] if candidates else (m.group(1) if m else "")
-          if not value:
-              raise SystemExit("ERROR: Could not extract Google Drive file ID from URL")
-          print(value)
-          PY
-          )"
-            gdown "https://drive.google.com/uc?id=$drive_id" -O /tmp/egov-2.2.1.apkm
-          else
-            curl --fail --location --retry 3 --retry-delay 2 "$apkm_url" -o /tmp/egov-2.2.1.apkm
-          fi
+          drive_link="https://drive.google.com/file/d/1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc/view?usp=drivesdk"
+          gdown "https://drive.google.com/uc?id=1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc" -O /tmp/egov-2.2.1.apkm
           test -s /tmp/egov-2.2.1.apkm
           file /tmp/egov-2.2.1.apkm
           unzip -t /tmp/egov-2.2.1.apkm
@@ -91,31 +56,3 @@ jobs:
           test -x /opt/jadx/bin/jadx
           /opt/jadx/bin/jadx --version
           echo "TOOLING_DIAGNOSTIC_OK"
-      - name: Extract and decompile eGov 2.2.1
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/egov-apkm /tmp/egov-apktool /tmp/egov-jadx
-          unzip -p /tmp/egov-2.2.1.apkm base.apk > /tmp/egov-base.apk
-          test -s /tmp/egov-base.apk
-          apktool d -f /tmp/egov-base.apk -o /tmp/egov-apktool
-          /opt/jadx/bin/jadx --threads-count 2 -d /tmp/egov-jadx /tmp/egov-base.apk
-          {
-            echo "## eGov 2.2.1 analysis"
-            echo
-            echo "### Certificate and UI class matches"
-            grep -RIlE 'CertificateInfoFragment|CertificateUtils|class Certificate|EdsActivity|getPem|Экспортировать сертификат' /tmp/egov-jadx/sources /tmp/egov-apktool 2>/dev/null | head -100 || true
-            echo
-            echo "### Manifest package"
-            grep -m1 -oE 'package="[^"]+"' /tmp/egov-apktool/AndroidManifest.xml || true
-          } | tee /tmp/egov-analysis-report.md
-          echo "EGOV_DECOMPILE_OK"
-      - name: Upload eGov analysis results
-        uses: actions/upload-artifact@v4
-        with:
-          name: egov-2.2.1-analysis
-          path: |
-            /tmp/egov-analysis-report.md
-            /tmp/egov-apktool
-            /tmp/egov-jadx/sources
-          if-no-files-found: error
-          compression-level: 6
