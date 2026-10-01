@@ -84,9 +84,13 @@ jobs:
           set -euo pipefail
           sudo apt-get install -y jq
           release_json="$(curl -fsSL https://api.github.com/repos/skylot/jadx/releases/latest)"
-          asset_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | startswith("jadx-") and endswith(".zip"))][0].browser_download_url // empty')"
-          test -n "$asset_url"
-          curl -fL "$asset_url" -o /tmp/jadx.zip
+          asset_api_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | test("^jadx-[0-9].*\\.zip$"))][0].url // empty')"
+          test -n "$asset_api_url"
+          # Download via the release-assets API rather than the browser URL,
+          # which returned HTTP 403 in run #48.
+          curl -fL --retry 3 --retry-all-errors -H "Accept: application/octet-stream" "$asset_api_url" -o /tmp/jadx.zip
+          file /tmp/jadx.zip
+          unzip -t /tmp/jadx.zip
           sudo mkdir -p /opt/jadx
           sudo unzip -q /tmp/jadx.zip -d /opt/jadx
           test -x /opt/jadx/bin/jadx
