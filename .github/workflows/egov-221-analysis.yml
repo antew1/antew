@@ -1,4 +1,4 @@
-name: eGov 2.2.1 Tooling Diagnostic
+name: eGov 2.2.1 APKM Download Validation
 
 on:
   push:
@@ -10,22 +10,21 @@ permissions:
   contents: read
 
 jobs:
-  tooling-diagnostic:
+  validate-apkm:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
-      - name: Confirm runner and install Apktool
+      - name: Confirm runner and install tools
         run: |
           set -euo pipefail
           echo "RUNNER_STARTED"
           java -version
           sudo apt-get update
-          sudo apt-get install -y apktool
+          sudo apt-get install -y apktool curl jq unzip
           apktool --version
       - name: Install and verify JADX
         run: |
           set -euo pipefail
-          sudo apt-get install -y curl jq unzip
           release_json="$(curl -fsSL https://api.github.com/repos/skylot/jadx/releases/latest)"
           asset_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | test("^jadx-[0-9.]+\\.zip$"))][0].browser_download_url // empty')"
           test -n "$asset_url"
@@ -34,4 +33,32 @@ jobs:
           sudo unzip -q /tmp/jadx.zip -d /opt/jadx
           test -x /opt/jadx/bin/jadx
           /opt/jadx/bin/jadx --version
-          echo "TOOLING_DIAGNOSTIC_OK"
+      - name: Download and validate APKM
+        env:
+          APKM_ID: 1RRR5zm2kssTsiHObxssxxVFUjw7ZKiUc
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user --upgrade gdown
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/gdown" "https://drive.google.com/uc?id=$APKM_ID" -O egov-2.2.1.apkm
+          test -s egov-2.2.1.apkm
+          mkdir -p apkm_contents
+          unzip -tq egov-2.2.1.apkm
+          unzip -q egov-2.2.1.apkm -d apkm_contents
+          base_apk="$(find apkm_contents -type f -name base.apk -print -quit)"
+          test -n "$base_apk"
+          unzip -tq "$base_apk"
+          echo "BASE_APK=$base_apk" >> "$GITHUB_ENV"
+          echo "APKM_SIZE=$(stat -c%s egov-2.2.1.apkm)"
+          echo "BASE_APK_SIZE=$(stat -c%s "$base_apk")"
+          echo "APKM_SHA256=$(sha256sum egov-2.2.1.apkm | cut -d' ' -f1)"
+          find apkm_contents -maxdepth 2 -type f -printf '%P %s bytes\\n' | sort
+      - name: Save validated base APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: egov-221-base-apk-validated
+          path: |
+            ${{ env.BASE_APK }}
+            apkm_contents/info.json
+          if-no-files-found: warn
+          retention-days: 7
