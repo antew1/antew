@@ -1,6 +1,11 @@
 name: eGov Certificate Smali Artifact
 
 on:
+  push:
+    branches:
+      - work/certificate-export-from-44
+    paths:
+      - ".github/workflows/egov-certificate-smali.yml"
   workflow_dispatch:
     inputs:
       apkm_url:
