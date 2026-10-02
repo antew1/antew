@@ -159,3 +159,21 @@ jobs:
           grep -RInE 'certificate_info|certificate.*(export|save)|export.*certificate|Сертификат|сертификат' /tmp/egov-decoded/res/values /tmp/egov-decoded/res/layout 2>/dev/null | head -n 160 || true
           echo "CERTIFICATE_SOURCE_EXCERPTS_OK"
           echo "CERTIFICATE_SOURCE_INVENTORY_OK"
+      - name: Collect verified certificate patch inputs
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/egov-certificate-patch-inputs
+          find /tmp/egov-decoded -type f -path '*/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.smali' -print -quit | xargs -r -I{} cp {} /tmp/egov-certificate-patch-inputs/CertificateInfoFragment.smali
+          find /tmp/egov-decoded -type f -path '*/kz/mobile/mgov/core/model/Certificate.smali' -print -quit | xargs -r -I{} cp {} /tmp/egov-certificate-patch-inputs/Certificate.smali
+          find /tmp/egov-decoded -type f -path '*/res/layout/fragment_certificate_info.xml' -print -quit | xargs -r -I{} cp {} /tmp/egov-certificate-patch-inputs/fragment_certificate_info.xml
+          test -s /tmp/egov-certificate-patch-inputs/CertificateInfoFragment.smali
+          test -s /tmp/egov-certificate-patch-inputs/Certificate.smali
+          test -s /tmp/egov-certificate-patch-inputs/fragment_certificate_info.xml
+          echo "CERTIFICATE_PATCH_INPUTS_READY"
+      - name: Upload verified certificate patch inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: egov-certificate-patch-inputs
+          path: /tmp/egov-certificate-patch-inputs/
+          if-no-files-found: error
+          retention-days: 7
