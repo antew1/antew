@@ -178,3 +178,21 @@ jobs:
           cat "$layout"
           echo "=== CERTIFICATE_INFO_LAYOUT_END ==="
           echo "CERTIFICATE_PATCH_INPUTS_LOGGED"
+
+      - name: Verify manifest storage compatibility and PEM navigation chain
+        run: |
+          set -euo pipefail
+          echo "=== apktool sdk metadata ==="
+          grep -nE 'minSdkVersion|targetSdkVersion|versionCode|versionName' /tmp/egov-decoded/apktool.yml || true
+          echo "=== manifest package/version/storage permissions ==="
+          grep -nE 'manifest|uses-sdk|WRITE_EXTERNAL_STORAGE|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE' /tmp/egov-decoded/AndroidManifest.xml || true
+          echo "=== CertificateUtils PEM creation ==="
+          grep -RIn -B 18 -A 10 'setPem(Ljava/security/cert/X509Certificate;)' /tmp/egov-decoded/smali*/*/mobile/mgov/core/security/CertificateUtils.smali 2>/dev/null || true
+          echo "=== Certificate model PEM accessors ==="
+          grep -RIn -B 5 -A 18 -E 'method public.*getPem|method public.*setPem' /tmp/egov-decoded/smali*/*/mobile/mgov/core/model/Certificate.smali 2>/dev/null || true
+          echo "=== CertificateInfoFragment certificate argument ==="
+          fragment="$(find /tmp/egov-decoded -type f -path '*/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.smali' -print -quit)"
+          grep -n -B 12 -A 28 -E 'const-string .*"certificate"|->certificate:Lkz/mobile/mgov/core/model/Certificate;' "$fragment" || true
+          echo "=== navigation sites passing certificate ==="
+          grep -RIn -B 12 -A 18 -E 'CertificateInfoFragment|const-string .*"certificate"|putSerializable' /tmp/egov-decoded/smali_classes9/kz/mobile/mgov/features/eds 2>/dev/null | head -n 500 || true
+          echo "MANIFEST_AND_PEM_CHAIN_DIAGNOSTIC_OK"
