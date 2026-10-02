@@ -84,9 +84,18 @@ jobs:
           set -euo pipefail
           sudo apt-get install -y jq
           release_json="$(curl -fsSL https://api.github.com/repos/skylot/jadx/releases/latest)"
-          asset_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | startswith("jadx-") and endswith(".zip"))][0].browser_download_url // empty')"
+          asset_json="$(printf '%s' "$release_json" | jq -c '[.assets[] | select(.name | startswith("jadx-") and endswith(".zip"))][0] // empty')"
+          test -n "$asset_json"
+          asset_api_url="$(printf '%s' "$asset_json" | jq -r '.url')"
+          asset_url="$(printf '%s' "$asset_json" | jq -r '.browser_download_url')"
+          test -n "$asset_api_url"
           test -n "$asset_url"
-          curl -fL "$asset_url" -o /tmp/jadx.zip
+          if ! curl -fL -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2026-03-10" "$asset_api_url" -o /tmp/jadx.zip; then
+            echo "GitHub asset API download failed; retrying browser download URL"
+            curl -fL --retry 3 --retry-all-errors "$asset_url" -o /tmp/jadx.zip
+          fi
+          file /tmp/jadx.zip
+          unzip -t /tmp/jadx.zip
           sudo mkdir -p /opt/jadx
           sudo unzip -q /tmp/jadx.zip -d /opt/jadx
           test -x /opt/jadx/bin/jadx
