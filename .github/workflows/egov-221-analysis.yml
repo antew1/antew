@@ -1,5 +1,4 @@
 name: eGov 2.2.1 Tooling Diagnostic
-# retry after GitHub startup failure
 
 on:
   push:
@@ -197,38 +196,3 @@ jobs:
           echo "=== navigation sites passing certificate ==="
           grep -RIn -B 12 -A 18 -E 'CertificateInfoFragment|const-string .*"certificate"|putSerializable' /tmp/egov-decoded/smali_classes9/kz/mobile/mgov/features/eds 2>/dev/null | head -n 500 || true
           echo "MANIFEST_AND_PEM_CHAIN_DIAGNOSTIC_OK"
-
-      - name: Patch certificate export UI and implementation
-        run: python3 scripts/patch_egov_certificate_export.py /tmp/egov-decoded
-
-      - name: Build patched APK
-        run: |
-          set -euo pipefail
-          apktool b /tmp/egov-decoded -o /tmp/egov-patched-unsigned.apk
-          test -s /tmp/egov-patched-unsigned.apk
-          echo "APKTOOL_BUILD_OK"
-
-      - name: Sign and verify patched APK
-        run: |
-          set -euo pipefail
-          sudo apt-get install -y apksigner zipalign
-          keytool -genkeypair -v -keystore /tmp/egov-test.keystore -storepass changeit -keypass changeit -alias egovpatch -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=eGov Certificate Export Patch"
-          zipalign -f -p 4 /tmp/egov-patched-unsigned.apk /tmp/egov-patched-aligned.apk
-          apksigner sign --ks /tmp/egov-test.keystore --ks-pass pass:changeit --key-pass pass:changeit --out /tmp/egov-patched.apk /tmp/egov-patched-aligned.apk
-          apksigner verify --verbose --print-certs /tmp/egov-patched.apk
-          aapt dump badging /tmp/egov-patched.apk | head -n 5
-          aapt dump badging /tmp/egov-patched.apk | grep -q "package: name='kz.mobile.mgov' versionCode='2020100' versionName='2.2.1'"
-          unzip -p /tmp/egov-patched.apk classes9.dex >/tmp/classes9.dex
-          strings /tmp/classes9.dex | grep -q "certificate_export_button"
-          strings /tmp/classes9.dex | grep -q "CertificateExporter"
-          mkdir -p /tmp/artifact
-          cp /tmp/egov-patched.apk /tmp/artifact/eGov-Mobile-2.2.1-certificate-export.apk
-          echo "SIGNED_APK_VERIFIED"
-
-      - name: Upload patched APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: egov-mobile-2.2.1-certificate-export
-          path: /tmp/artifact/eGov-Mobile-2.2.1-certificate-export.apk
-          if-no-files-found: error
-          retention-days: 7
