@@ -196,3 +196,224 @@ jobs:
           echo "=== navigation sites passing certificate ==="
           grep -RIn -B 12 -A 18 -E 'CertificateInfoFragment|const-string .*"certificate"|putSerializable' /tmp/egov-decoded/smali_classes9/kz/mobile/mgov/features/eds 2>/dev/null | head -n 500 || true
           echo "MANIFEST_AND_PEM_CHAIN_DIAGNOSTIC_OK"
+
+      - name: Patch certificate export UI and implementation
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("/tmp/egov-decoded")
+          frag=next(root.glob("smali_classes9/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.smali"))
+          layout=root/"res/layout/fragment_certificate_info.xml"
+          s=layout.read_text()
+          marker='<Button android:textColor="@color/redTextColor" android:id="@id/revoke"'
+          export='<Button android:tag="certificate_export_button" android:textColor="@android:color/black" android:background="@color/white" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dip" android:text="Экспортировать сертификат" android:textAllCaps="false" android:fontFamily="@font/open_sans" android:layout_marginStart="20.0dip" android:layout_marginEnd="20.0dip" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/certificate_date" />\n            '
+          if marker not in s: raise SystemExit("revoke button marker not found")
+          s=s.replace(marker,export+marker,1)
+          s=s.replace('app:layout_constraintTop_toBottomOf="@id/certificate_date" />\n            <TextView', 'app:layout_constraintTop_toBottomOf="@id/certificate_date" />\n            <TextView',1)
+          # Revoke must sit below the injected button. Constraint by tag is impossible, so keep visual export button
+          # after certificate card and place listener by tag; revoke may overlap unless we give export bottom margin
+          # and change revoke top margin enough. Use 72dp top margin for deterministic non-overlap.
+          old='android:id="@id/revoke" android:background="@color/white" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dip"'
+          new='android:id="@id/revoke" android:background="@color/white" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="72.0dip"'
+          if old not in s: raise SystemExit("revoke margin marker not found")
+          s=s.replace(old,new,1)
+          layout.write_text(s)
+
+          fs=frag.read_text()
+          needle='    invoke-direct {p0, p1}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;->bindViews(Landroid/view/View;)V\n'
+          inject='''    invoke-direct {p0, p1}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;->bindViews(Landroid/view/View;)V
+
+    const-string v0, "certificate_export_button"
+
+    invoke-virtual {p1, v0}, Landroid/view/View;->findViewWithTag(Ljava/lang/Object;)Landroid/view/View;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/widget/Button;
+
+    new-instance p2, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;
+
+    invoke-direct {p2, p0}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;-><init>(Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;)V
+
+    invoke-virtual {v0, p2}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V
+'''
+          if needle not in fs: raise SystemExit("onViewCreated bindViews marker not found")
+          fs=fs.replace(needle,inject,1)
+          frag.write_text(fs)
+
+          pkg=frag.parent
+          (pkg/"CertificateExportClickListener.smali").write_text(r'''.class public final Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;
+.super Ljava/lang/Object;
+.implements Landroid/view/View$OnClickListener;
+
+.field private final fragment:Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;
+
+.method public constructor <init>(Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;)V
+    .locals 0
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+    iput-object p1, p0, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;->fragment:Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;
+    return-void
+.end method
+
+.method public onClick(Landroid/view/View;)V
+    .locals 3
+    iget-object v0, p0, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;->fragment:Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;
+    invoke-static {v0}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;->access$getCertificate$p(Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;)Lkz/mobile/mgov/core/model/Certificate;
+    move-result-object v1
+    if-eqz v1, :done
+    invoke-virtual {v1}, Lkz/mobile/mgov/core/model/Certificate;->getPem()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :done
+    invoke-virtual {v1}, Ljava/lang/String;->length()I
+    move-result v2
+    if-lez v2, :done
+    invoke-virtual {v0}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;->requireContext()Landroid/content/Context;
+    move-result-object v0
+    invoke-static {v0, v1}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExporter;->export(Landroid/content/Context;Ljava/lang/String;)V
+    :done
+    return-void
+.end method
+''')
+          (pkg/"CertificateExporter.smali").write_text(r'''.class public final Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExporter;
+.super Ljava/lang/Object;
+
+.method public static export(Landroid/content/Context;Ljava/lang/String;)V
+    .locals 9
+    :try_start
+    new-instance v0, Ljava/text/SimpleDateFormat;
+    const-string v1, "yyyyMMdd_HHmmss"
+    sget-object v2, Ljava/util/Locale;->US:Ljava/util/Locale;
+    invoke-direct {v0, v1, v2}, Ljava/text/SimpleDateFormat;-><init>(Ljava/lang/String;Ljava/util/Locale;)V
+    new-instance v1, Ljava/util/Date;
+    invoke-direct {v1}, Ljava/util/Date;-><init>()V
+    invoke-virtual {v0, v1}, Ljava/text/SimpleDateFormat;->format(Ljava/util/Date;)Ljava/lang/String;
+    move-result-object v0
+    new-instance v1, Ljava/lang/StringBuilder;
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string v2, "certificate_"
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v0, ".pem"
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+
+    sget v1, Landroid/os/Build$VERSION;->SDK_INT:I
+    const/16 v2, 0x1d
+    if-lt v1, v2, :legacy
+
+    new-instance v1, Landroid/content/ContentValues;
+    invoke-direct {v1}, Landroid/content/ContentValues;-><init>()V
+    const-string v2, "_display_name"
+    invoke-virtual {v1, v2, v0}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v2, "mime_type"
+    const-string v3, "application/x-pem-file"
+    invoke-virtual {v1, v2, v3}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v2, "relative_path"
+    sget-object v3, Landroid/os/Environment;->DIRECTORY_DOWNLOADS:Ljava/lang/String;
+    invoke-virtual {v1, v2, v3}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+    move-result-object v2
+    sget-object v3, Landroid/provider/MediaStore$Downloads;->EXTERNAL_CONTENT_URI:Landroid/net/Uri;
+    invoke-virtual {v2, v3, v1}, Landroid/content/ContentResolver;->insert(Landroid/net/Uri;Landroid/content/ContentValues;)Landroid/net/Uri;
+    move-result-object v1
+    if-eqz v1, :fail
+    invoke-virtual {v2, v1}, Landroid/content/ContentResolver;->openOutputStream(Landroid/net/Uri;)Ljava/io/OutputStream;
+    move-result-object v2
+    goto :write
+
+    :legacy
+    const-string v1, "android.permission.WRITE_EXTERNAL_STORAGE"
+    invoke-static {p0, v1}, Landroidx/core/content/ContextCompat;->checkSelfPermission(Landroid/content/Context;Ljava/lang/String;)I
+    move-result v2
+    if-eqz v2, :legacy_write
+    instance-of v2, p0, Landroid/app/Activity;
+    if-eqz v2, :fail
+    check-cast p0, Landroid/app/Activity;
+    filled-new-array {v1}, [Ljava/lang/String;
+    move-result-object v1
+    const/16 v2, 0x4d2
+    invoke-static {p0, v1, v2}, Landroidx/core/app/ActivityCompat;->requestPermissions(Landroid/app/Activity;[Ljava/lang/String;I)V
+    return-void
+
+    :legacy_write
+    sget-object v1, Landroid/os/Environment;->DIRECTORY_DOWNLOADS:Ljava/lang/String;
+    invoke-static {v1}, Landroid/os/Environment;->getExternalStoragePublicDirectory(Ljava/lang/String;)Ljava/io/File;
+    move-result-object v1
+    invoke-virtual {v1}, Ljava/io/File;->mkdirs()Z
+    new-instance v2, Ljava/io/File;
+    invoke-direct {v2, v1, v0}, Ljava/io/File;-><init>(Ljava/io/File;Ljava/lang/String;)V
+    new-instance v1, Ljava/io/FileOutputStream;
+    invoke-direct {v1, v2}, Ljava/io/FileOutputStream;-><init>(Ljava/io/File;)V
+    move-object v2, v1
+
+    :write
+    if-eqz v2, :fail
+    sget-object v1, Ljava/nio/charset/StandardCharsets;->UTF_8:Ljava/nio/charset/Charset;
+    invoke-virtual {p1, v1}, Ljava/lang/String;->getBytes(Ljava/nio/charset/Charset;)[B
+    move-result-object v1
+    invoke-virtual {v2, v1}, Ljava/io/OutputStream;->write([B)V
+    invoke-virtual {v2}, Ljava/io/OutputStream;->flush()V
+    invoke-virtual {v2}, Ljava/io/OutputStream;->close()V
+    const-string v1, "Сертификат сохранён в Downloads"
+    const/4 v2, 0x0
+    invoke-static {p0, v1, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+    move-result-object v1
+    invoke-virtual {v1}, Landroid/widget/Toast;->show()V
+    return-void
+
+    :fail
+    const-string v1, "Не удалось экспортировать сертификат"
+    const/4 v2, 0x0
+    invoke-static {p0, v1, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+    move-result-object v1
+    invoke-virtual {v1}, Landroid/widget/Toast;->show()V
+    return-void
+    :try_end
+    .catch Ljava/lang/Exception; {:try_start .. :try_end} :catch
+
+    :catch
+    move-exception v0
+    const-string v1, "Не удалось экспортировать сертификат"
+    const/4 v2, 0x0
+    invoke-static {p0, v1, v2}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+    move-result-object v1
+    invoke-virtual {v1}, Landroid/widget/Toast;->show()V
+    return-void
+.end method
+''')
+          print("PATCH_APPLIED")
+          PY
+
+      - name: Build patched APK
+        run: |
+          set -euo pipefail
+          apktool b /tmp/egov-decoded -o /tmp/egov-patched-unsigned.apk
+          test -s /tmp/egov-patched-unsigned.apk
+          echo "APKTOOL_BUILD_OK"
+
+      - name: Sign and verify patched APK
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y apksigner zipalign
+          keytool -genkeypair -v -keystore /tmp/egov-test.keystore -storepass changeit -keypass changeit -alias egovpatch -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=eGov Certificate Export Patch"
+          zipalign -f -p 4 /tmp/egov-patched-unsigned.apk /tmp/egov-patched-aligned.apk
+          apksigner sign --ks /tmp/egov-test.keystore --ks-pass pass:changeit --key-pass pass:changeit --out /tmp/egov-patched.apk /tmp/egov-patched-aligned.apk
+          apksigner verify --verbose --print-certs /tmp/egov-patched.apk
+          aapt dump badging /tmp/egov-patched.apk | head -n 5
+          aapt dump badging /tmp/egov-patched.apk | grep -q "package: name='kz.mobile.mgov' versionCode='2020100' versionName='2.2.1'"
+          unzip -p /tmp/egov-patched.apk classes9.dex >/tmp/classes9.dex
+          strings /tmp/classes9.dex | grep -q "certificate_export_button"
+          strings /tmp/classes9.dex | grep -q "CertificateExporter"
+          mkdir -p /tmp/artifact
+          cp /tmp/egov-patched.apk /tmp/artifact/eGov-Mobile-2.2.1-certificate-export.apk
+          echo "SIGNED_APK_VERIFIED"
+
+      - name: Upload patched APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: egov-mobile-2.2.1-certificate-export
+          path: /tmp/artifact/eGov-Mobile-2.2.1-certificate-export.apk
+          if-no-files-found: error
+          retention-days: 7
