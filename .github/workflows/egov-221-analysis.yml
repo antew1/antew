@@ -179,6 +179,9 @@ jobs:
           echo "=== CERTIFICATE_INFO_LAYOUT_END ==="
           echo "CERTIFICATE_PATCH_INPUTS_LOGGED"
 
+      - name: Run certificate export patcher scaffold
+        run: python3 scripts/patch_egov_certificate_export.py /tmp/egov-decoded
+
       - name: Verify manifest storage compatibility and PEM navigation chain
         run: |
           set -euo pipefail
