@@ -1,4 +1,5 @@
 name: eGov 2.2.1 Tooling Diagnostic
+# retry after GitHub startup failure
 
 on:
   push:
