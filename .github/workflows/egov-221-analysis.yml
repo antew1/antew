@@ -331,3 +331,22 @@ jobs:
           sha256sum /tmp/egov-patched-test-signed.apkm
           du -h /tmp/egov-patched-test-signed.apkm
           echo "TEMPORARY_SIGNED_APKM_CREATED_NOT_PUBLISHED"
+      - name: Verify every packaged APK has the same signer
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          apksigner="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          mkdir -p /tmp/egov-final-signature-check
+          unzip -j -q /tmp/egov-patched-test-signed.apkm '*.apk' -d /tmp/egov-final-signature-check
+          expected=""
+          count=0
+          for apk in /tmp/egov-final-signature-check/*.apk; do
+            "$apksigner" verify "$apk"
+            digest="$("$apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
+            test -n "$digest"
+            if [ -z "$expected" ]; then expected="$digest"; fi
+            test "$digest" = "$expected"
+            count=$((count+1))
+          done
+          test "$count" -eq 10
+          echo "ALL_PACKAGED_APKS_SHARE_ONE_SIGNER"
