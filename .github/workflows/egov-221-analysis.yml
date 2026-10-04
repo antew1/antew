@@ -341,9 +341,16 @@ jobs:
           expected=""
           count=0
           for apk in /tmp/egov-final-signature-check/*.apk; do
-            "$apksigner" verify "$apk"
-            digest="$("$apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')"
-            test -n "$digest"
+            echo "VERIFYING_APK:$(basename "$apk")"
+            "$apksigner" verify --verbose "$apk"
+            cert_output="$("$apksigner" verify --print-certs "$apk")"
+            digest="$(printf '%s\\n' "$cert_output" | sed -n 's/.*Signer #1 certificate SHA-256 digest: *//p' | head -n 1)"
+            if [ -z "$digest" ]; then
+              echo "SIGNER_DIGEST_PARSE_FAILED:$(basename "$apk")"
+              printf '%s\\n' "$cert_output" | grep -E 'Signer|certificate' || true
+              exit 1
+            fi
+            echo "SIGNER_DIGEST_PARSED:$(basename "$apk")"
             if [ -z "$expected" ]; then expected="$digest"; fi
             test "$digest" = "$expected"
             count=$((count+1))
