@@ -62,7 +62,7 @@ jobs:
           test -s /tmp/egov-2.2.1.apkm
           file /tmp/egov-2.2.1.apkm
           unzip -t /tmp/egov-2.2.1.apkm
-          unzip -Z1 /tmp/egov-2.2.1.apkm | grep -E '[.]apk$'
+          unzip -Z1 /tmp/egov-2.2.1.apkm | grep -E '(^|/)base[.]apk$'
           unzip -p /tmp/egov-2.2.1.apkm info.json > /tmp/egov-info.json
           python3 - <<'PY'
           import json
@@ -260,7 +260,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "=== APKM APK ENTRIES ==="
-          unzip -Z1 /tmp/egov-2.2.1.apkm | grep -E '(^|/)[^/]+[.]apk
+          unzip -Z1 /tmp/egov-2.2.1.apkm | grep -E '[.]apk$'
 
           echo "=== APKM METADATA ==="
           python3 - <<'PY'
