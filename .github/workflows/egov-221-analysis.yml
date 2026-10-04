@@ -186,6 +186,9 @@ jobs:
           grep -Eq '^\.method .* getPem\(\)Ljava/lang/String;' "$model"
           grep -Eq '^\.method .* onViewCreated\(' "$fragment"
           echo "CERTIFICATE_PEM_LISTENER_ANCHORS_OK"
+          grep -n -A 38 -B 4 -E '^\\.method .* (onViewCreated|setData|bindViews)\\(' "$fragment" | head -n 130
+          grep -n -A 12 -B 4 'setOnClickListener' "$fragment" | head -n 110
+          echo "CERTIFICATE_LISTENER_PATCH_CONTEXT_OK"
           echo "CERTIFICATE_PATCH_INPUTS_LOGGED"
 
       - name: Verify manifest storage compatibility and PEM navigation chain
