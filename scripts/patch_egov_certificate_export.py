@@ -32,6 +32,18 @@ def main():
     if "getPem()Ljava/lang/String;" not in model:
         raise SystemExit("public PEM accessor missing")
     print("CERTIFICATE_PUBLIC_PEM_ANCHORS_OK")
+    import re
+    public_xml = root / "res" / "values" / "public.xml"
+    if not public_xml.is_file():
+        raise SystemExit("resource ID table missing")
+    resources = ET.parse(public_xml).getroot()
+    certificate_date_ids = [
+        e.get("id") for e in resources
+        if e.get("type") == "id" and e.get("name") == "certificate_date"
+    ]
+    if len(certificate_date_ids) != 1 or not re.fullmatch(r"0x[0-9a-fA-F]{8}", certificate_date_ids[0]):
+        raise SystemExit("certificate_date resource ID not uniquely resolved")
+    print("CERTIFICATE_RESOURCE_ID_RESOLVED:" + certificate_date_ids[0])
 
 if __name__ == "__main__":
     main()
