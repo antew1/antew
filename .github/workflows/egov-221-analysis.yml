@@ -357,22 +357,13 @@ jobs:
           done
           test "$count" -eq 10
           echo "ALL_PACKAGED_APKS_SHARE_ONE_SIGNER"
-      - name: Retain test APKM as private workflow artifact
+      - name: Check private artifact upload availability
         run: |
           set -euo pipefail
-          mkdir -p /tmp/egov-artifact
-          npm install --prefix /tmp/egov-artifact --no-audit --no-fund @actions/artifact@2.3.2
-          node - <<'JS'
-          const artifact = require('/tmp/egov-artifact/node_modules/@actions/artifact');
-          (async () => {
-            const path = '/tmp/egov-patched-test-signed.apkm';
-            const client = new artifact.DefaultArtifactClient();
-            const result = await client.uploadArtifact(
-              'egov-221-temporary-test-apkm',
-              [path],
-              '/tmp',
-              { retentionDays: 1 }
-            );
-            console.log('PRIVATE_TEST_ARTIFACT_UPLOADED', result.id);
-          })().catch(err => { console.error(err); process.exitCode = 1; });
-          JS
+          test -s /tmp/egov-patched-test-signed.apkm
+          if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ] && [ -n "${ACTIONS_RUNTIME_URL:-}" ]; then
+            echo "PRIVATE_ARTIFACT_RUNTIME_AVAILABLE"
+          else
+            echo "PRIVATE_ARTIFACT_RUNTIME_UNAVAILABLE"
+            echo "APKM remains only on the temporary runner; no public distribution attempted."
+          fi
