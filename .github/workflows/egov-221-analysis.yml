@@ -83,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get install -y jq
-          release_json="$(curl -fsSL https://api.github.com/repos/skylot/jadx/releases/latest)"
+          release_json="$(curl -fsSL --retry 3 --retry-all-errors -H "Accept: application/vnd.github+json" -H "User-Agent: egov-tooling-diagnostic" https://api.github.com/repos/skylot/jadx/releases/latest)"
           asset_json="$(printf '%s' "$release_json" | jq -c '[.assets[] | select(.name | startswith("jadx-") and endswith(".zip"))][0] // empty')"
           test -n "$asset_json"
           asset_api_url="$(printf '%s' "$asset_json" | jq -r '.url')"
