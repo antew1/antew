@@ -44,6 +44,26 @@ def main():
     if len(certificate_date_ids) != 1 or not re.fullmatch(r"0x[0-9a-fA-F]{8}", certificate_date_ids[0]):
         raise SystemExit("certificate_date resource ID not uniquely resolved")
     print("CERTIFICATE_RESOURCE_ID_RESOLVED:" + certificate_date_ids[0])
+    if text.count('android:id="@+id/certificate_export"') != 1:
+        raise SystemExit("export button missing or duplicated")
+    if any(e.get("name") == "certificate_export" and e.get("type") == "id" for e in resources):
+        raise SystemExit("export resource ID already exists")
+    used = {
+        int(e.get("id"), 16) for e in resources
+        if e.get("type") == "id" and re.fullmatch(r"0x[0-9a-fA-F]{8}", e.get("id") or "")
+    }
+    prefix = int(certificate_date_ids[0], 16) & 0xffff0000
+    candidates = [prefix | i for i in range(0xffff) if (prefix | i) not in used]
+    if not candidates:
+        raise SystemExit("no free ID resources")
+    export_id = candidates[-1]
+    ET.SubElement(resources, "public", {
+        "type": "id", "name": "certificate_export", "id": f"0x{export_id:08x}"
+    })
+    ET.indent(resources)
+    ET.ElementTree(resources).write(public_xml, encoding="utf-8", xml_declaration=True)
+    layout.write_text(text.replace('android:id="@+id/certificate_export"', 'android:id="@id/certificate_export"'), encoding="utf-8")
+    print(f"CERTIFICATE_EXPORT_RESOURCE_REGISTERED:0x{export_id:08x}")
 
 if __name__ == "__main__":
     main()
