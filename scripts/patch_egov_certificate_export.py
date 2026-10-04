@@ -64,6 +64,28 @@ def main():
     ET.ElementTree(resources).write(public_xml, encoding="utf-8", xml_declaration=True)
     layout.write_text(text.replace('android:id="@+id/certificate_export"', 'android:id="@id/certificate_export"'), encoding="utf-8")
     print(f"CERTIFICATE_EXPORT_RESOURCE_REGISTERED:0x{export_id:08x}")
+    listener = fragment_files[0].with_name("CertificateExportClickListener.smali")
+    if listener.exists():
+        raise SystemExit("certificate export listener already exists")
+    listener.write_text(""" .class public final Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;
+.super Ljava/lang/Object;
+.implements Landroid/view/View$OnClickListener;
+
+.field private final fragment:Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;
+
+.method public constructor <init>(Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;)V
+    .locals 0
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+    iput-object p1, p0, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;->fragment:Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;
+    return-void
+.end method
+
+.method public onClick(Landroid/view/View;)V
+    .locals 0
+    return-void
+.end method
+""".lstrip(), encoding="utf-8")
+    print("CERTIFICATE_EXPORT_LISTENER_SKELETON_CREATED")
 
 if __name__ == "__main__":
     main()
