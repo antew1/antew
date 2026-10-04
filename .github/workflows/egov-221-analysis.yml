@@ -83,7 +83,10 @@ jobs:
           test -n "$apktool_url"
           curl -fL --retry 3 --retry-all-errors "$apktool_url" -o /tmp/apktool-current.jar
           test -s /tmp/apktool-current.jar
-          printf '#!/bin/sh\\nexec java -jar /tmp/apktool-current.jar "$@"\\n' | sudo tee /usr/local/bin/apktool >/dev/null
+          sudo tee /usr/local/bin/apktool >/dev/null <<'SH'
+          #!/bin/sh
+          exec java -jar /tmp/apktool-current.jar "$@"
+          SH
           sudo chmod +x /usr/local/bin/apktool
           apktool --version
       - name: Install and verify JADX
