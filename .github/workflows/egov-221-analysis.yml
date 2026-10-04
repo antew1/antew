@@ -245,3 +245,12 @@ jobs:
           sha256sum /tmp/egov-patched-unsigned.apk
           du -h /tmp/egov-patched-unsigned.apk
           echo "UNSIGNED_APK_OUTPUT_VERIFIED"
+      - name: Verify rebuilt APK certificate export bytecode
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/egov-rebuilt-jadx
+          /opt/jadx/bin/jadx --no-res --no-imports --output-dir /tmp/egov-rebuilt-jadx /tmp/egov-patched-unsigned.apk
+          test -f /tmp/egov-rebuilt-jadx/sources/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener.java
+          grep -Fq 'certificate.pem' /tmp/egov-rebuilt-jadx/sources/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener.java
+          grep -Fq 'PRIVATE KEY' /tmp/egov-rebuilt-jadx/sources/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener.java
+          echo "CERTIFICATE_EXPORT_BYTECODE_VERIFIED"
