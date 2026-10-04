@@ -214,6 +214,12 @@ jobs:
       - name: Rebuild patched APK and validate Smali
         run: |
           set -euo pipefail
+          # Apktool 2.7 decodes this vendor resource type as an invalid directory.
+          # Keep a diagnostic copy and exclude only the malformed directory from aapt.
+          if [ -d "/tmp/egov-decoded/res navigation" ]; then
+            mv "/tmp/egov-decoded/res navigation" "/tmp/egov-res-navigation-excluded"
+            echo "EXCLUDED_INVALID_RESOURCE_DIRECTORY:res navigation"
+          fi
           apktool b /tmp/egov-decoded -o /tmp/egov-patched-unsigned.apk
           test -s /tmp/egov-patched-unsigned.apk
           unzip -t /tmp/egov-patched-unsigned.apk | tail -n 2
