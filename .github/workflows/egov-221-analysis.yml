@@ -77,7 +77,14 @@ jobs:
           set -euo pipefail
           echo "RUNNER_STARTED"
           java -version
-          sudo apt-get install -y apktool
+          sudo apt-get install -y jq
+          release_json="$(curl -fsSL --retry 3 --retry-all-errors -H "Accept: application/vnd.github+json" https://api.github.com/repos/iBotPeaches/Apktool/releases/latest)"
+          apktool_url="$(printf '%s' "$release_json" | jq -r '[.assets[] | select(.name | endswith(".jar")) | .browser_download_url][0] // empty')"
+          test -n "$apktool_url"
+          curl -fL --retry 3 --retry-all-errors "$apktool_url" -o /tmp/apktool-current.jar
+          test -s /tmp/apktool-current.jar
+          printf '#!/bin/sh\\nexec java -jar /tmp/apktool-current.jar "$@"\\n' | sudo tee /usr/local/bin/apktool >/dev/null
+          sudo chmod +x /usr/local/bin/apktool
           apktool --version
       - name: Install and verify JADX
         run: |
