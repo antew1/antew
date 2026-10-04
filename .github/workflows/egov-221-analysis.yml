@@ -231,7 +231,7 @@ jobs:
             echo "EXCLUDED_INVALID_RESOURCE_DIRECTORY:res navigation"
           fi
           echo "=== RESOURCE DIRECTORY DIAGNOSTIC ==="
-          find /tmp/egov-decoded -maxdepth 2 -type d -print | head -n 120
+          find /tmp/egov-decoded/res -mindepth 1 -maxdepth 1 -type d -print | sort
           ls -lb /tmp/egov-decoded
           grep -n -C 2 navigation /tmp/egov-decoded/apktool.yml || true
           apktool b /tmp/egov-decoded -o /tmp/egov-patched-unsigned.apk
