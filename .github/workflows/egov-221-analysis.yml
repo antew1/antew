@@ -238,3 +238,10 @@ jobs:
           test -s /tmp/egov-patched-unsigned.apk
           unzip -t /tmp/egov-patched-unsigned.apk | tail -n 2
           echo "PATCHED_APK_REBUILD_OK"
+      - name: Upload unsigned diagnostic APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: egov-221-patched-unsigned
+          path: /tmp/egov-patched-unsigned.apk
+          if-no-files-found: error
+          retention-days: 3
