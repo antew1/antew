@@ -271,3 +271,17 @@ jobs:
                   print(key, ':', d[key])
           PY
           echo "APKM_SPLIT_PACKAGING_INSPECTED"
+      - name: Verify Android signing tools for all APK splits
+        run: |
+          set -euo pipefail
+          echo "=== ANDROID BUILD TOOLS ==="
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$sdk/build-tools"
+          find "$sdk/build-tools" -maxdepth 2 -type f \( -name apksigner -o -name zipalign \) -print
+          apksigner="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          zipalign="$(find "$sdk/build-tools" -maxdepth 2 -type f -name zipalign | sort -V | tail -n 1)"
+          test -x "$apksigner"
+          test -x "$zipalign"
+          "$apksigner" --version
+          "$zipalign" -h >/dev/null 2>&1 || test "$?" -eq 2
+          echo "SPLIT_SIGNING_TOOLS_VERIFIED"
