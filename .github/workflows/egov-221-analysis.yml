@@ -210,3 +210,11 @@ jobs:
           echo "=== navigation sites passing certificate ==="
           grep -RIn -B 12 -A 18 -E 'CertificateInfoFragment|const-string .*"certificate"|putSerializable' /tmp/egov-decoded/smali_classes9/kz/mobile/mgov/features/eds 2>/dev/null | head -n 500 || true
           echo "MANIFEST_AND_PEM_CHAIN_DIAGNOSTIC_OK"
+
+      - name: Rebuild patched APK and validate Smali
+        run: |
+          set -euo pipefail
+          apktool b /tmp/egov-decoded -o /tmp/egov-patched-unsigned.apk
+          test -s /tmp/egov-patched-unsigned.apk
+          unzip -t /tmp/egov-patched-unsigned.apk | tail -n 2
+          echo "PATCHED_APK_REBUILD_OK"
