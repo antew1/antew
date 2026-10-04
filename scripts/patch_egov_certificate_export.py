@@ -18,6 +18,9 @@ def main():
         raise SystemExit("expected certificate info layout anchors not found")
 
     print(f"PATCH_TARGET_OK:{layout}")
+    import xml.etree.ElementTree as ET
+    ET.parse(layout)
+    print("CERTIFICATE_LAYOUT_XML_VALID")
 
 if __name__ == "__main__":
     main()
