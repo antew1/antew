@@ -81,7 +81,18 @@ def main():
 .end method
 
 .method public onClick(Landroid/view/View;)V
-    .locals 0
+    .locals 2
+    iget-object v0, p0, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;->fragment:Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;
+    invoke-static {v0}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;->access$getCertificate$p(Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;)Lkz/mobile/mgov/core/model/Certificate;
+    move-result-object v0
+    if-eqz v0, :done
+    invoke-virtual {v0}, Lkz/mobile/mgov/core/model/Certificate;->getPem()Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :done
+    invoke-virtual {v1}, Ljava/lang/String;->length()I
+    move-result v0
+    if-lez v0, :done
+    :done
     return-void
 .end method
 """.lstrip(), encoding="utf-8")
