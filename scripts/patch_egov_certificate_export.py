@@ -92,7 +92,63 @@ def main():
     invoke-virtual {v1}, Ljava/lang/String;->length()I
     move-result v0
     if-lez v0, :done
+    const-string v0, "-----BEGIN CERTIFICATE-----"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v0
+    if-eqz v0, :done
+    const-string v0, "PRIVATE KEY"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+    move-result v0
+    if-nez v0, :done
+    invoke-direct {p0, p1, v1}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;->savePublicPem(Landroid/view/View;Ljava/lang/String;)V
     :done
+    return-void
+.end method
+
+.method private savePublicPem(Landroid/view/View;Ljava/lang/String;)V
+    .locals 8
+    :try_start
+    invoke-virtual {p1}, Landroid/view/View;->getContext()Landroid/content/Context;
+    move-result-object v0
+    invoke-virtual {v0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+    move-result-object v2
+    new-instance v3, Landroid/content/ContentValues;
+    invoke-direct {v3}, Landroid/content/ContentValues;-><init>()V
+    const-string v4, "_display_name"
+    const-string v5, "certificate.pem"
+    invoke-virtual {v3, v4, v5}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v4, "mime_type"
+    const-string v5, "application/x-pem-file"
+    invoke-virtual {v3, v4, v5}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
+    const-string v4, "relative_path"
+    const-string v5, "Download/"
+    invoke-virtual {v3, v4, v5}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
+    sget-object v4, Landroid/provider/MediaStore$Downloads;->EXTERNAL_CONTENT_URI:Landroid/net/Uri;
+    invoke-virtual {v2, v4, v3}, Landroid/content/ContentResolver;->insert(Landroid/net/Uri;Landroid/content/ContentValues;)Landroid/net/Uri;
+    move-result-object v4
+    if-eqz v4, :error
+    invoke-virtual {v2, v4}, Landroid/content/ContentResolver;->openOutputStream(Landroid/net/Uri;)Ljava/io/OutputStream;
+    move-result-object v5
+    if-eqz v5, :error
+    sget-object v6, Ljava/nio/charset/StandardCharsets;->UTF_8:Ljava/nio/charset/Charset;
+    invoke-virtual {p2, v6}, Ljava/lang/String;->getBytes(Ljava/nio/charset/Charset;)[B
+    move-result-object v6
+    invoke-virtual {v5, v6}, Ljava/io/OutputStream;->write([B)V
+    invoke-virtual {v5}, Ljava/io/OutputStream;->close()V
+    const-string v1, "Сертификат сохранён в Загрузки"
+    goto :notify
+    :error
+    const-string v1, "Не удалось сохранить сертификат"
+    goto :notify
+    :try_end
+    .catch Ljava/lang/Exception; {:try_start .. :try_end} :catch_error
+    :catch_error
+    const-string v1, "Ошибка экспорта сертификата"
+    :notify
+    const/4 v6, 0x1
+    invoke-static {v0, v1, v6}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+    move-result-object v7
+    invoke-virtual {v7}, Landroid/widget/Toast;->show()V
     return-void
 .end method
 """.lstrip(), encoding="utf-8")
