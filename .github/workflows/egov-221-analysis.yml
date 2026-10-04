@@ -190,6 +190,8 @@ jobs:
           grep -n -A 12 -B 4 'setOnClickListener' "$fragment" | head -n 110
           echo "CERTIFICATE_LISTENER_PATCH_CONTEXT_OK"
           echo "CERTIFICATE_PATCH_INPUTS_LOGGED"
+          curl -fsSL --retry 3 --retry-all-errors "https://raw.githubusercontent.com/antew1/antew/${{ github.sha }}/scripts/patch_egov_certificate_export.py" -o /tmp/patch_egov_certificate_export.py
+          python3 /tmp/patch_egov_certificate_export.py /tmp/egov-decoded
 
       - name: Verify manifest storage compatibility and PEM navigation chain
         run: |
