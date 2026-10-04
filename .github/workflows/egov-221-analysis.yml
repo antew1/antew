@@ -220,6 +220,10 @@ jobs:
             mv "/tmp/egov-decoded/res navigation" "/tmp/egov-res-navigation-excluded"
             echo "EXCLUDED_INVALID_RESOURCE_DIRECTORY:res navigation"
           fi
+          echo "=== RESOURCE DIRECTORY DIAGNOSTIC ==="
+          find /tmp/egov-decoded -maxdepth 2 -type d -print | head -n 120
+          ls -lb /tmp/egov-decoded
+          grep -n -C 2 navigation /tmp/egov-decoded/apktool.yml || true
           apktool b /tmp/egov-decoded -o /tmp/egov-patched-unsigned.apk
           test -s /tmp/egov-patched-unsigned.apk
           unzip -t /tmp/egov-patched-unsigned.apk | tail -n 2
