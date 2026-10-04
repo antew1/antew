@@ -177,6 +177,9 @@ jobs:
           echo "=== CERTIFICATE_INFO_LAYOUT_BEGIN ==="
           cat "$layout"
           echo "=== CERTIFICATE_INFO_LAYOUT_END ==="
+          grep -q 'android:id="@id/revoke"' "$layout"
+          grep -q 'app:layout_constraintTop_toBottomOf="@id/certificate_date"' "$layout"
+          echo "CERTIFICATE_LAYOUT_ANCHORS_OK"
           echo "CERTIFICATE_PATCH_INPUTS_LOGGED"
 
       - name: Verify manifest storage compatibility and PEM navigation chain
