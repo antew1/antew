@@ -256,3 +256,18 @@ jobs:
           grep -Fq 'certificate.pem' /tmp/egov-rebuilt-jadx/sources/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener.java
           grep -Fq 'PRIVATE KEY' /tmp/egov-rebuilt-jadx/sources/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener.java
           echo "CERTIFICATE_EXPORT_BYTECODE_VERIFIED"
+      - name: Inspect APKM split packaging before signing
+        run: |
+          set -euo pipefail
+          echo "=== APKM APK ENTRIES ==="
+          unzip -Z1 /tmp/egov-2.2.1.apkm | grep -E '(^|/)[^/]+[.]apk
+
+          echo "=== APKM METADATA ==="
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/egov-info.json'))
+          for key in ('pname','release_version','split_apks','split_configs','total_size'):
+              if key in d:
+                  print(key, ':', d[key])
+          PY
+          echo "APKM_SPLIT_PACKAGING_INSPECTED"
