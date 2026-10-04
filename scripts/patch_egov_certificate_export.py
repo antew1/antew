@@ -21,6 +21,17 @@ def main():
     import xml.etree.ElementTree as ET
     ET.parse(layout)
     print("CERTIFICATE_LAYOUT_XML_VALID")
+    fragment_files = list(root.glob("smali_classes*/kz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment.smali"))
+    model_files = list(root.glob("smali_classes*/kz/mobile/mgov/core/model/Certificate.smali"))
+    if len(fragment_files) != 1 or len(model_files) != 1:
+        raise SystemExit("expected unique certificate fragment and model")
+    fragment = fragment_files[0].read_text(encoding="utf-8")
+    model = model_files[0].read_text(encoding="utf-8")
+    if ".method public onViewCreated(" not in fragment or "setData()V" not in fragment:
+        raise SystemExit("certificate screen lifecycle anchors missing")
+    if "getPem()Ljava/lang/String;" not in model:
+        raise SystemExit("public PEM accessor missing")
+    print("CERTIFICATE_PUBLIC_PEM_ANCHORS_OK")
 
 if __name__ == "__main__":
     main()
