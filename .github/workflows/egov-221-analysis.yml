@@ -307,3 +307,27 @@ jobs:
           done
           test "$count" -eq 10
           echo "ALL_10_SPLITS_SIGNED_AND_VERIFIED_WITH_TEMPORARY_KEY"
+      - name: Package and validate temporary signed APKM
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/egov-apkm-package
+          cd /tmp/egov-apkm-package
+          unzip -q /tmp/egov-2.2.1.apkm
+          for apk in /tmp/egov-signing-test/signed/*.apk; do
+            cp "$apk" "./$(basename "$apk")"
+          done
+          zip -q -r /tmp/egov-patched-test-signed.apkm .
+          unzip -t /tmp/egov-patched-test-signed.apkm | tail -n 2
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          with ZipFile('/tmp/egov-patched-test-signed.apkm') as z:
+              names=z.namelist()
+              apks=[n for n in names if n.endswith('.apk')]
+              assert len(apks)==10, apks
+              assert 'base.apk' in apks
+              assert 'info.json' in names
+              print('SIGNED_APKM_PACKAGE_STRUCTURE_VERIFIED')
+          PY
+          sha256sum /tmp/egov-patched-test-signed.apkm
+          du -h /tmp/egov-patched-test-signed.apkm
+          echo "TEMPORARY_SIGNED_APKM_CREATED_NOT_PUBLISHED"
