@@ -285,3 +285,25 @@ jobs:
           "$apksigner" --version
           "$zipalign" -h >/dev/null 2>&1 || test "$?" -eq 2
           echo "SPLIT_SIGNING_TOOLS_VERIFIED"
+      - name: Test consistent signatures across all APK splits
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          apksigner="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          zipalign="$(find "$sdk/build-tools" -maxdepth 2 -type f -name zipalign | sort -V | tail -n 1)"
+          mkdir -p /tmp/egov-signing-test/input /tmp/egov-signing-test/signed
+          unzip -j /tmp/egov-2.2.1.apkm '*.apk' -d /tmp/egov-signing-test/input
+          cp /tmp/egov-patched-unsigned.apk /tmp/egov-signing-test/input/base.apk
+          # This temporary test key is discarded with the runner; never distribute these APKs.
+          keytool -genkeypair -keystore /tmp/egov-signing-test/test.jks -storepass changeit -keypass changeit -alias test -keyalg RSA -keysize 3072 -validity 1 -dname 'CN=Temporary CI Test' -noprompt
+          count=0
+          for apk in /tmp/egov-signing-test/input/*.apk; do
+            name="$(basename "$apk")"
+            "$zipalign" -f -p 4 "$apk" "/tmp/egov-signing-test/signed/aligned-$name"
+            "$apksigner" sign --ks /tmp/egov-signing-test/test.jks --ks-key-alias test --ks-pass pass:changeit --key-pass pass:changeit --out "/tmp/egov-signing-test/signed/$name" "/tmp/egov-signing-test/signed/aligned-$name"
+            "$apksigner" verify --verbose "/tmp/egov-signing-test/signed/$name"
+            rm "/tmp/egov-signing-test/signed/aligned-$name"
+            count=$((count+1))
+          done
+          test "$count" -eq 10
+          echo "ALL_10_SPLITS_SIGNED_AND_VERIFIED_WITH_TEMPORARY_KEY"
