@@ -344,7 +344,7 @@ jobs:
             echo "VERIFYING_APK:$(basename "$apk")"
             "$apksigner" verify --verbose "$apk"
             cert_output="$("$apksigner" verify --print-certs "$apk")"
-            digest="$(printf '%s\\n' "$cert_output" | sed -n 's/.*Signer #1 certificate SHA-256 digest: *//p' | head -n 1)"
+            digest="$(printf '%s\\n' "$cert_output" | sed -n 's/.*certificate SHA-256 digest: *//p' | head -n 1)"
             if [ -z "$digest" ]; then
               echo "SIGNER_DIGEST_PARSE_FAILED:$(basename "$apk")"
               printf '%s\\n' "$cert_output" | grep -E 'Signer|certificate' || true
