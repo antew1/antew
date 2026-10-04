@@ -94,11 +94,11 @@ def main():
         raise SystemExit("unexpected certificate view lifecycle structure")
     method = method.replace(".locals 1", ".locals 2", 1)
     instructions = (
-        "\\n    const v0, 0x%08x\\n"
-        "    invoke-virtual {p1, v0}, Landroid/view/View;->findViewById(I)Landroid/view/View;\\n"
-        "    move-result-object v0\\n"
-        "    new-instance v1, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;\\n"
-        "    invoke-direct {v1, p0}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;-><init>(Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;)V\\n"
+        "\n    const v0, 0x%08x\n"
+        "    invoke-virtual {p1, v0}, Landroid/view/View;->findViewById(I)Landroid/view/View;\n"
+        "    move-result-object v0\n"
+        "    new-instance v1, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;\n"
+        "    invoke-direct {v1, p0}, Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateExportClickListener;-><init>(Lkz/mobile/mgov/features/eds/presentation/my_eds/CertificateInfoFragment;)V\n"
         "    invoke-virtual {v0, v1}, Landroid/view/View;->setOnClickListener(Landroid/view/View$OnClickListener;)V"
     ) % export_id
     method = method.replace(target, target + instructions, 1)
