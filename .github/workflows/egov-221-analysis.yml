@@ -12,7 +12,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   tooling-diagnostic:
@@ -357,13 +357,17 @@ jobs:
           done
           test "$count" -eq 10
           echo "ALL_PACKAGED_APKS_SHARE_ONE_SIGNER"
-      - name: Check private artifact upload availability
+      - name: Save test APKM in a draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test -s /tmp/egov-patched-test-signed.apkm
-          if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ] && [ -n "${ACTIONS_RUNTIME_URL:-}" ]; then
-            echo "PRIVATE_ARTIFACT_RUNTIME_AVAILABLE"
-          else
-            echo "PRIVATE_ARTIFACT_RUNTIME_UNAVAILABLE"
-            echo "APKM remains only on the temporary runner; no public distribution attempted."
-          fi
+          tag="egov-test-${GITHUB_RUN_ID}"
+          gh release create "$tag" /tmp/egov-patched-test-signed.apkm \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --title "eGov 2.2.1 test build ${GITHUB_RUN_NUMBER}" \
+            --notes "Temporary test APKM from GitHub Actions run ${GITHUB_RUN_NUMBER}. Signed with a temporary CI test key. Do not publish or redistribute."
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,assets,url
+          echo "DRAFT_RELEASE_APKM_SAVED"
