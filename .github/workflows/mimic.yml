@@ -112,6 +112,7 @@ jobs:
           PY
 
       - name: Создать пример Python-клиента через OpenCode
+        id: generate
         if: steps.auth.outputs.ready == 'true'
         working-directory: mimic-source
         env:
@@ -139,8 +140,10 @@ jobs:
           PY
 
       - name: Сохранить результат проверки
+        if: always() && steps.auth.conclusion == 'success'
         env:
           GENERATOR_AUTH_READY: ${{ steps.auth.outputs.ready }}
+          GENERATOR_RESULT: ${{ steps.generate.conclusion }}
         run: |
           python - <<'PY'
           import os
@@ -154,10 +157,15 @@ jobs:
               "- OpenCode 1.18.35 установлен и подключён как генератор.\n"
               "- Проверки команд, интеграции и HAR пройдены.\n"
           )
-          if ready:
+          if ready and os.environ.get("GENERATOR_RESULT") == "success":
               summary += "- Авторизация выполнена, пример Python-клиента создан и проверен.\n"
               source = Path(os.environ["RUNNER_TEMP"]) / "mimic-example-client.py"
               summary += "\n### Пример клиента\n\n```python\n" + source.read_text(encoding="utf-8") + "\n```\n"
+          elif ready:
+              summary += (
+                  "- Секрет OPENCODE_API_KEY сохранён и доступен workflow.\n"
+                  "- Генерация не пройдена. Смотрите ошибку доступа OpenCode в журнале шага генерации.\n"
+              )
           else:
               summary += (
                   "- Авторизация ожидается. Генерация кода пока не проверена.\n\n"
@@ -169,3 +177,4 @@ jobs:
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as output:
               output.write(summary)
           PY
+

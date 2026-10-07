@@ -60,6 +60,19 @@ class OpenCodeOutputTests(unittest.TestCase):
             ADAPTER.python_from_events(raw)
         self.assertNotIn(secret, str(caught.exception))
 
+    def test_free_tier_refusal_is_reported_without_response_body(self):
+        raw = json.dumps({
+            "type": "error",
+            "error": {"data": {
+                "statusCode": 403,
+                "responseBody": json.dumps({
+                    "type": "error",
+                    "error": {"type": "FreeTierError", "message": "private request data"},
+                }),
+            }},
+        })
+        self.assertEqual(ADAPTER.failure_detail(raw), "HTTP 403; FreeTierError")
+
 
 if __name__ == "__main__":
     unittest.main()

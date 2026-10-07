@@ -26,8 +26,25 @@ def failure_detail(raw):
             continue
         data = error.get("data") or {}
         status = data.get("statusCode") if isinstance(data, dict) else None
-        if type(status) is int and 100 <= status <= 599:
-            return f"HTTP {status}"
+        status_text = f"HTTP {status}" if type(status) is int and 100 <= status <= 599 else ""
+        try:
+            body = json.loads(data.get("responseBody", "{}")) if isinstance(data, dict) else {}
+        except (ValueError, TypeError):
+            body = {}
+        nested = body.get("error") if isinstance(body, dict) else None
+        candidates = [body.get("_tag")] if isinstance(body, dict) else []
+        if isinstance(nested, dict):
+            candidates.extend([nested.get("type"), nested.get("_tag"), nested.get("name")])
+        known = {
+            "FreeTierError", "Forbidden", "Unauthorized", "AuthenticationError",
+            "InsufficientBalanceError", "BillingError", "PermissionDenied",
+            "ModelNotFoundError", "RateLimitError",
+        }
+        kind = next((item for item in candidates if isinstance(item, str) and item in known), "")
+        if kind:
+            return "; ".join(item for item in (status_text, kind) if item)
+        if status_text:
+            return status_text
         name = error.get("name")
         if name in {"ProviderModelNotFoundError", "ProviderAuthError", "ConfigInvalidError"}:
             return name
