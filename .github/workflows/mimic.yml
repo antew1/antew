@@ -15,22 +15,23 @@ permissions:
 jobs:
   install-and-test:
     name: Установить и проверить Mimic
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
       - name: Скачать исходный Mimic
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          repository: littledivy/mimic
-          ref: 8cf998ac0b365806d8e522d34107cc504ecaa345
-          path: mimic-source
-          persist-credentials: false
+        run: |
+          git init mimic-source
+          git -C mimic-source remote add origin https://github.com/littledivy/mimic.git
+          git -C mimic-source fetch --depth=1 origin 8cf998ac0b365806d8e522d34107cc504ecaa345
+          git -C mimic-source checkout --detach FETCH_HEAD
+          test "$(git -C mimic-source rev-parse HEAD)" = "8cf998ac0b365806d8e522d34107cc504ecaa345"
 
       - name: Подготовить Python 3.12
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.12"
+        run: |
+          python3.12 --version
+          python3.12 -m venv "$RUNNER_TEMP/mimic-venv"
+          echo "$RUNNER_TEMP/mimic-venv/bin" >> "$GITHUB_PATH"
 
       - name: Установить Mimic, mitmproxy и зависимости
         working-directory: mimic-source
