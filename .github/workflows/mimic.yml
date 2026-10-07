@@ -1,0 +1,80 @@
+name: Mimic — установка и проверка
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/mimic.yml
+      - toolchain/mimic/**
+
+permissions:
+  contents: read
+
+jobs:
+  install-and-test:
+    name: Установить и проверить Mimic
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Скачать исходный Mimic
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: littledivy/mimic
+          ref: 8cf998ac0b365806d8e522d34107cc504ecaa345
+          path: mimic-source
+          persist-credentials: false
+
+      - name: Подготовить Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Установить Mimic, mitmproxy и зависимости
+        working-directory: mimic-source
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[capture]' uv pytest
+          python -m pip check
+
+      - name: Проверить команды Mimic и mitmproxy
+        run: |
+          mimic --help
+          mitmweb --version
+
+      - name: Выполнить тесты Mimic
+        working-directory: mimic-source
+        run: python -m pytest -q
+
+      - name: Проверить обработку HAR и подготовку генерации
+        working-directory: mimic-source
+        run: |
+          mimic hosts --har tests/fixtures/sample.har
+          mimic learn api.example.com --har tests/fixtures/sample.har
+          mimic gen api.example.com --har tests/fixtures/sample.har --prompt-only > "$RUNNER_TEMP/mimic-example-prompt.txt"
+          test -s "$RUNNER_TEMP/mimic-example-prompt.txt"
+
+      - name: Сохранить результат проверки
+        run: |
+          python - <<'PY'
+          import os
+          from importlib.metadata import version
+          from pathlib import Path
+
+          summary = (
+              "## Mimic установлен и проверен\n\n"
+              f"- Mimic: {version('mimic-client')}.\n"
+              f"- mitmproxy: {version('mitmproxy')}.\n"
+              "- Python 3.12, uv и зависимости установлены.\n"
+              "- Команды запускаются, тесты HAR пройдены.\n"
+              "- Подготовка запроса для генерации Python-клиента работает.\n"
+              "- Для генерации клиента нужен Claude Code или OpenCode с авторизацией.\n\n"
+              "Исходный проект: https://github.com/littledivy/mimic\n"
+              "Зафиксированная версия: 8cf998ac0b365806d8e522d34107cc504ecaa345\n\n"
+              "Среда GitHub Actions действует только во время запуска workflow.\n"
+          )
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as output:
+              output.write(summary)
+          PY
