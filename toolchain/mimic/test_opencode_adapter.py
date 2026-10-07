@@ -42,6 +42,25 @@ class OpenCodeOutputTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     ADAPTER.python_from_events(output)
 
+    def test_provider_diagnostics_do_not_disclose_credentials(self):
+        secret = "oc_sk_private_credential_do_not_log"
+        raw = json.dumps({
+            "type": "error",
+            "error": {
+                "name": "APICallError",
+                "data": {
+                    "statusCode": 401,
+                    "message": secret,
+                    "responseBody": secret,
+                },
+            },
+        })
+        self.assertEqual(ADAPTER.failure_detail(raw), "HTTP 401")
+        with self.assertRaises(RuntimeError) as caught:
+            ADAPTER.python_from_events(raw)
+        self.assertNotIn(secret, str(caught.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
+

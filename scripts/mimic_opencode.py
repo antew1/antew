@@ -12,6 +12,28 @@ import sys
 MODEL = "opencode/big-pickle"
 
 
+def failure_detail(raw):
+    """Report only fixed error names and HTTP status, never provider payloads."""
+    for line in raw.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict) or event.get("type") != "error":
+            continue
+        error = event.get("error") or {}
+        if not isinstance(error, dict):
+            continue
+        data = error.get("data") or {}
+        status = data.get("statusCode") if isinstance(data, dict) else None
+        if type(status) is int and 100 <= status <= 599:
+            return f"HTTP {status}"
+        name = error.get("name")
+        if name in {"ProviderModelNotFoundError", "ProviderAuthError", "ConfigInvalidError"}:
+            return name
+    return "provider request failed"
+
+
 def python_from_events(raw):
     chunks = []
     for line in raw.splitlines():
@@ -22,7 +44,7 @@ def python_from_events(raw):
         if not isinstance(event, dict):
             continue
         if event.get("type") == "error":
-            raise RuntimeError("OpenCode reported a provider error.")
+            raise RuntimeError(f"OpenCode reported a provider error ({failure_detail(raw)}).")
         part = event.get("part") or {}
         if event.get("type") == "text" and isinstance(part, dict):
             text = part.get("text")
@@ -65,7 +87,8 @@ def main():
     )
     if result.returncode:
         raise RuntimeError(
-            "OpenCode request failed. Check OPENCODE_API_KEY and model access."
+            f"OpenCode request failed ({failure_detail(result.stdout)}). "
+            "Check OPENCODE_API_KEY and model access."
         )
     sys.stdout.write(python_from_events(result.stdout))
 
@@ -76,3 +99,4 @@ if __name__ == "__main__":
     except (KeyError, OSError, RuntimeError, subprocess.TimeoutExpired) as error:
         print(f"OpenCode integration: {error}", file=sys.stderr)
         sys.exit(1)
+

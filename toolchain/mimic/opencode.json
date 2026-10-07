@@ -10,8 +10,10 @@
   "provider": {
     "opencode": {
       "options": {
+        "baseURL": "https://opencode.ai/inference/openai/v1",
         "apiKey": "{env:OPENCODE_API_KEY}"
       }
     }
   }
 }
+
