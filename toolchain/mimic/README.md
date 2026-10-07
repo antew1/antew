@@ -11,6 +11,16 @@ OpenCode подключён к Mimic через команду `mimic gen --gene
 Источник OpenCode: [официальный релиз 1.18.35](https://github.com/anomalyco/opencode/releases/tag/v1.18.35).
 Контрольная сумма архива проверяется до установки.
 
+## Результат подключения
+
+Служебный ключ `Mimic GitHub Actions` создан с правом «Models: Request»
+и сохранён в секрете `OPENCODE_API_KEY` репозитория.
+Проверены установка, обработка HAR, 9 тестов Mimic и 5 тестов интеграции.
+Реальная генерация через OpenCode получила `HTTP 403; FreeTierError`:
+провайдер ограничил бесплатный доступ в этой среде.
+Поэтому генерация Python-клиента пока не подтверждена.
+[Результат проверки](https://github.com/antew1/antew/actions/runs/37673233286).
+
 ## Авторизация
 
 1. В [OpenCode Console](https://opencode.ai/auth) открой «Keys», создай отдельную
