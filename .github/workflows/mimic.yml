@@ -1,4 +1,4 @@
-name: Mimic — установка и проверка
+name: Mimic — установка и генератор
 
 on:
   workflow_dispatch:
@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - .github/workflows/mimic.yml
+      - scripts/mimic_opencode.py
       - toolchain/mimic/**
 
 permissions:
@@ -14,11 +15,18 @@ permissions:
 
 jobs:
   install-and-test:
-    name: Установить и проверить Mimic
+    name: Установить и проверить Mimic с OpenCode
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
+      - name: Скачать конфигурацию интеграции
+        run: |
+          git init mimic-integration
+          git -C mimic-integration remote add origin https://github.com/antew1/antew.git
+          git -C mimic-integration fetch --depth=1 origin "$GITHUB_SHA"
+          git -C mimic-integration checkout --detach FETCH_HEAD
+
       - name: Скачать исходный Mimic
         run: |
           git init mimic-source
@@ -29,7 +37,6 @@ jobs:
 
       - name: Подготовить Python 3.12
         run: |
-          python3.12 --version
           python3.12 -m venv "$RUNNER_TEMP/mimic-venv"
           echo "$RUNNER_TEMP/mimic-venv/bin" >> "$GITHUB_PATH"
 
@@ -40,10 +47,39 @@ jobs:
           python -m pip install '.[capture]' uv pytest
           python -m pip check
 
-      - name: Проверить команды Mimic и mitmproxy
+      - name: Установить OpenCode 1.18.35 и подключить к Mimic
+        run: |
+          curl --fail --silent --show-error --location --retry 2 --max-time 180 \
+            https://github.com/anomalyco/opencode/releases/download/v1.18.35/opencode-linux-x64-baseline.tar.gz \
+            -o "$RUNNER_TEMP/opencode.tar.gz"
+          printf '%s  %s\n' 90c97d4a24d36437bce36f27195c9cd2e0b70ed037a04d1c6a6740eb246c2a73 "$RUNNER_TEMP/opencode.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/opencode"
+          tar -xzf "$RUNNER_TEMP/opencode.tar.gz" -C "$RUNNER_TEMP/opencode"
+          install -m 755 mimic-integration/scripts/mimic_opencode.py "$RUNNER_TEMP/mimic-venv/bin/opencode"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          runner = Path(os.environ["RUNNER_TEMP"])
+          workspace = Path(os.environ["GITHUB_WORKSPACE"])
+          settings = {
+              "MIMIC_OPENCODE_BINARY": runner / "opencode" / "opencode",
+              "MIMIC_OPENCODE_CONFIG": workspace / "mimic-integration" / "toolchain" / "mimic" / "opencode.json",
+              "MIMIC_OPENCODE_STATE_DIR": runner / "mimic-opencode-state",
+          }
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as output:
+              for name, value in settings.items():
+                  output.write(f"{name}={value}\n")
+          PY
+
+      - name: Проверить установленные команды
         run: |
           mimic --help
           mitmweb --version
+          opencode --version
+
+      - name: Проверить интеграцию OpenCode
+        run: python -m unittest discover -s mimic-integration/toolchain/mimic -p test_opencode_adapter.py -v
 
       - name: Выполнить тесты Mimic
         working-directory: mimic-source
@@ -57,25 +93,79 @@ jobs:
           mimic gen api.example.com --har tests/fixtures/sample.har --prompt-only > "$RUNNER_TEMP/mimic-example-prompt.txt"
           test -s "$RUNNER_TEMP/mimic-example-prompt.txt"
 
-      - name: Сохранить результат проверки
+      - name: Проверить наличие ключа авторизации
+        id: auth
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         run: |
           python - <<'PY'
           import os
-          from importlib.metadata import version
           from pathlib import Path
 
+          ready = bool(os.environ.get("OPENCODE_API_KEY", "").strip())
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write(f"ready={str(ready).lower()}\n")
+          if ready:
+              print("Ключ OpenCode настроен.")
+          else:
+              print("::notice::Добавьте секрет OPENCODE_API_KEY для авторизации генератора. Генерация ещё не выполнялась.")
+          PY
+
+      - name: Создать пример Python-клиента через OpenCode
+        if: steps.auth.outputs.ready == 'true'
+        working-directory: mimic-source
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          mimic gen api.example.com --har tests/fixtures/sample.har --generator opencode --out "$RUNNER_TEMP/mimic-example-client.py"
+          python - <<'PY'
+          import ast
+          import os
+          from pathlib import Path
+
+          source = Path(os.environ["RUNNER_TEMP"]) / "mimic-example-client.py"
+          tree = ast.parse(source.read_text(encoding="utf-8"))
+          clients = [
+              node for node in tree.body
+              if isinstance(node, ast.ClassDef) and any(
+                  (isinstance(base, ast.Attribute) and base.attr == "App")
+                  or (isinstance(base, ast.Name) and base.id == "App")
+                  for base in node.bases
+              )
+          ]
+          if not clients:
+              raise RuntimeError("В ответе генератора отсутствует клиент на основе Mimic.App.")
+          print("Python-клиент создан; синтаксис и класс клиента проверены.")
+          PY
+
+      - name: Сохранить результат проверки
+        env:
+          GENERATOR_AUTH_READY: ${{ steps.auth.outputs.ready }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from importlib.metadata import version
+
+          ready = os.environ.get("GENERATOR_AUTH_READY") == "true"
           summary = (
-              "## Mimic установлен и проверен\n\n"
-              f"- Mimic: {version('mimic-client')}.\n"
-              f"- mitmproxy: {version('mitmproxy')}.\n"
-              "- Python 3.12, uv и зависимости установлены.\n"
-              "- Команды запускаются, тесты HAR пройдены.\n"
-              "- Подготовка запроса для генерации Python-клиента работает.\n"
-              "- Для генерации клиента нужен Claude Code или OpenCode с авторизацией.\n\n"
-              "Исходный проект: https://github.com/littledivy/mimic\n"
-              "Зафиксированная версия: 8cf998ac0b365806d8e522d34107cc504ecaa345\n\n"
-              "Среда GitHub Actions действует только во время запуска workflow.\n"
+              "## Mimic и OpenCode\n\n"
+              f"- Mimic {version('mimic-client')} установлен.\n"
+              "- OpenCode 1.18.35 установлен и подключён как генератор.\n"
+              "- Проверки команд, интеграции и HAR пройдены.\n"
           )
+          if ready:
+              summary += "- Авторизация выполнена, пример Python-клиента создан и проверен.\n"
+              source = Path(os.environ["RUNNER_TEMP"]) / "mimic-example-client.py"
+              summary += "\n### Пример клиента\n\n```python\n" + source.read_text(encoding="utf-8") + "\n```\n"
+          else:
+              summary += (
+                  "- Авторизация ожидается. Генерация кода пока не проверена.\n\n"
+                  "Добавьте секрет OPENCODE_API_KEY: "
+                  "https://github.com/antew1/antew/settings/secrets/actions\n"
+                  "Затем нажмите Run workflow.\n"
+              )
+          summary += "\nСреда GitHub Actions действует только во время запуска workflow.\n"
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as output:
               output.write(summary)
           PY
